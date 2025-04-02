@@ -20,6 +20,42 @@ class AWSHelper:
         response = ec2.describe_instances()
         return response["Reservations"]
 
+    def get_ec2_instances_info(self, state_filter = "running"):
+        # returns a list of formatted strings describing each EC2 instance whose instance_state matches the
+        # state_filter
+        # if there are no EC2 instances, an empty list is returned
+        reservations = self.list_instances()
+
+        if reservations is None or len(reservations) == 0:
+            return []
+
+        instances_info = []
+        try:
+            for reservation in reservations:
+                for instance in reservation["Instances"]:
+                    instance_state = instance["State"]["Name"]
+
+                    # Apply the state filter (default is 'running')
+                    if state_filter and instance_state != state_filter:
+                        continue  # Skip this instance if it doesn't match the filter
+
+                    # Create a formatted string with instance details
+                    instance_info = (
+                        f"ID: {instance['InstanceId']}\n"
+                        f"Image ID: {instance['ImageId']}\n"
+                        f"Instance type: {instance['InstanceType']}\n"
+                        f"Key name: {instance['KeyName']}\n"
+                        f"VPC ID: {instance['VpcId']}\n"
+                        f"Public IP: {instance.get('PublicIpAddress', 'N/A')}\n"
+                        f"State: {instance_state}"
+                    )
+                    # print(instance_info)
+                    instances_info.append(instance_info)
+        except Exception as e:
+            print(f"An error occurred parsing EC2 instance information: {e}")
+        return instances_info
+
+
     def create_instance(
         self, image_id, instance_type, key_name, security_group_id, subnet_id
     ):
