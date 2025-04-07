@@ -103,6 +103,9 @@ Feel free to fork the repository and submit pull requests. Contributions are wel
 1. Fork this repository
 2. Create a new branch (git checkout -b feature-branch)
 3. Do the changes and make sure you lint and format the code using ruff tool.
+    - Install Ruff : `pip install ruff`
+    - Check code quality : `ruff format --check .`
+    - Format the code : `ruff format . --respect-gitignore`
 4. Commit your changes (git commit -am 'Add new feature')
 5. Push to the branch (git push origin feature-branch)
 6. Create a new Pull Request

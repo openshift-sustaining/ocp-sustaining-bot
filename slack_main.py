@@ -1,50 +1,45 @@
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
-from aws.core import ROSAHelper, AWSHelper
-from ostack.core import OpenStackHelper
 import re
+
+from slack_helpers.helper_functions import (
+    handle_help,
+    handle_create_rosa_cluster,
+    handle_create_openstack_vm,
+    handle_hello,
+    handle_create_aws_vm,
+)
 
 app = App(token=config.SLACK_BOT_TOKEN)
 
 
+# Define the main event handler function
 @app.event("app_mention")
 @app.event("message")
 def mention_handler(body, say):
     user = body.get("event", {}).get("user")
     text = body.get("event", {}).get("text", "").strip()
 
-    if re.search(r"\bhelp\b", text, re.IGNORECASE):
-        say(
-            f"Hello <@{user}>! I'm here to help. You can use the following commands:\n"
-            "`create-rosa-cluster <cluster_name>`: Create an AWS OpenShift cluster.\n"
-            "`create-openstack-vm <name> <image> <flavor> <network>`: Create an OpenStack VM.\n"
-            "`hello`: Greet the bot."
-        )
-    elif text.startswith("create-rosa-cluster"):
-        cluster_name = text.replace("create-rosa-cluster", "").strip()
-        rosa_helper = ROSAHelper()
-        rosa_helper.create_rosa_cluster(cluster_name, say)
-    elif text.startswith("create-openstack-vm"):
-        args = text.replace("create-openstack-vm", "").strip().split()
-        os_helper = OpenStackHelper()
-        os_helper.create_vm(args, say)
-    elif re.search(r"\bhello\b", text, re.IGNORECASE):
-        say(f"Hello <@{user}>! How can I assist you today?")
-    elif re.search(r"\bcreate_aws_vm\b", text, re.IGNORECASE):
-        aws_helper = AWSHelper()
-        instance = aws_helper.create_instance(
-            "ami-0d2614eafc1b0e4d2",
-            "t2.micro",
-            "prabhakar",
-            "sg-0a698ca3494298d7d",
-            "subnet-0ca17bcc389bf108f",
-        )
-        say(f"Successfuly created VM : {instance}")
-    else:
-        say(
-            f"Hello <@{user}>! I couldn't understand your request. Please try again or type 'help' for assistance."
-        )
+    # Create a command mapping
+    commands = {
+        r"\bhelp\b": lambda: handle_help(say, user),
+        r"^create-rosa-cluster": lambda: handle_create_rosa_cluster(say, user, text),
+        r"^create-openstack-vm": lambda: handle_create_openstack_vm(say, user, text),
+        r"\bhello\b": lambda: handle_hello(say, user),
+        r"\bcreate_aws_vm\b": lambda: handle_create_aws_vm(say, user),
+    }
+
+    # Check for command matches and execute the appropriate handler
+    for pattern, handler in commands.items():
+        if re.search(pattern, text, re.IGNORECASE):
+            handler()  # Execute the handler
+            return
+
+    # If no match is found, provide a default message
+    say(
+        f"Hello <@{user}>! I couldn't understand your request. Please try again or type 'help' for assistance."
+    )
 
 
 # Main Entry Point
