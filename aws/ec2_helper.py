@@ -11,7 +11,7 @@ class EC2Helper:
             region_name=self.region,
         )
 
-    def list_instances(self, state_filter = "running"):
+    def list_instances(self, state_filter="running"):
         """
         get all EC2 instances in the specified region.
         returns a list of formatted strings describing each EC2 instance whose instance_state matches the
@@ -43,12 +43,12 @@ class EC2Helper:
                         # Tags is a list and each element in the list is a dictionary
                         ec2_instance_name = ""
                         ec2_architecture = ""
-                        for tag in instance['Tags']:
-                            key = tag.get('Key')
-                            if key == 'Name':
-                                ec2_instance_name = tag['Value']
-                            elif key == 'architecture':
-                                ec2_architecture  = tag['Value']
+                        for tag in instance["Tags"]:
+                            key = tag.get("Key")
+                            if key == "Name":
+                                ec2_instance_name = tag["Value"]
+                            elif key == "architecture":
+                                ec2_architecture = tag["Value"]
                         # Create a formatted string with instance details
                         instance_info = (
                             f"Instance Name: {ec2_instance_name}\n"

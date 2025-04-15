@@ -1,6 +1,7 @@
 import subprocess
 from config import config
 
+
 class ROSAHelper:
     def __init__(self, region=None):
         self.region = region or config.AWS_DEFAULT_REGION

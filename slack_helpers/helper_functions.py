@@ -44,6 +44,7 @@ def handle_create_aws_vm(say, user):
     )
     say(f"Successfully created EC2 instance: {instance.id}")
 
+
 # Helper function to list AWS EC2 instances
 def handle_list_aws_vms(say, region):
     ec2_helper = EC2Helper(region=region)  # Set your region
