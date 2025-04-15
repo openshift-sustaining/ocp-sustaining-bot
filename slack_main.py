@@ -1,20 +1,13 @@
-from slack_bolt import App
-from slack_bolt.adapter.socket_mode import SocketModeHandler
-from config import config
-from aws.core import ROSAHelper, AWSHelper
-from ostack.core import OpenStackHelper
 import re
 
-app = App(token=config.SLACK_BOT_TOKEN)
+from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-def list_aws_ec2_instances(say):
-    aws_helper = AWSHelper()
-    instances_info = aws_helper.get_ec2_instances_info(state_filter="running")
-    if len(instances_info) == 0:
-        say("There are currently no running EC2 instances to retrieve")
-    else:
-        for instance_info in instances_info:
-            say(f"{instance_info}")
+from aws.core import AWSHelper, ROSAHelper
+from config import config
+from ostack.core import OpenStackHelper
+
+app = App(token=config.SLACK_BOT_TOKEN)
 
 @app.event("app_mention")
 @app.event("message")
@@ -48,9 +41,14 @@ def mention_handler(body, say):
             "sg-0a698ca3494298d7d",
             "subnet-0ca17bcc389bf108f",
         )
-        say(f"Successfuly created VM : {instance}")
+        say(f"Successfully created VM : {instance}")
     elif re.search(r"\blist_aws_vms\b", text, re.IGNORECASE):
-        list_aws_ec2_instances(say)
+        instances_info = AWSHelper().get_ec2_instances_info(state_filter="running")
+        if len(instances_info) == 0:
+            say("There are currently no running EC2 instances to retrieve")
+        else:
+            for instance_info in instances_info:
+                say(f"\n*** VM Details ***\n{instance_info}\n")
     else:
         say(
             f"Hello <@{user}>! I couldn't understand your request. Please try again or type 'help' for assistance."
