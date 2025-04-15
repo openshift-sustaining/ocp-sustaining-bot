@@ -1,7 +1,10 @@
 import subprocess
-
+from config import config
 
 class ROSAHelper:
+    def __init__(self, region=None):
+        self.region = region or config.AWS_DEFAULT_REGION
+
     def create_rosa_cluster(self, cluster_name, say):
         """
         Create a ROSA cluster using the ROSA CLI.

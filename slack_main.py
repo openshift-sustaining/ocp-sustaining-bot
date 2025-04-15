@@ -9,6 +9,7 @@ from slack_helpers.helper_functions import (
     handle_create_openstack_vm,
     handle_hello,
     handle_create_aws_vm,
+    handle_list_aws_vms
 )
 
 app = App(token=config.SLACK_BOT_TOKEN)
@@ -20,6 +21,7 @@ app = App(token=config.SLACK_BOT_TOKEN)
 def mention_handler(body, say):
     user = body.get("event", {}).get("user")
     text = body.get("event", {}).get("text", "").strip()
+    region = config.AWS_DEFAULT_REGION
 
     # Create a command mapping
     commands = {
@@ -28,6 +30,7 @@ def mention_handler(body, say):
         r"^create-openstack-vm": lambda: handle_create_openstack_vm(say, user, text),
         r"\bhello\b": lambda: handle_hello(say, user),
         r"\bcreate_aws_vm\b": lambda: handle_create_aws_vm(say, user),
+        r"\blist_aws_vms\b": lambda: handle_list_aws_vms(say, region)
     }
 
     # Check for command matches and execute the appropriate handler
