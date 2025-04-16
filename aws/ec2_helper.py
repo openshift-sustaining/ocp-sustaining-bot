@@ -11,13 +11,62 @@ class EC2Helper:
             region_name=self.region,
         )
 
-    def list_instances(self):
+    def list_instances(self, state_filter="running"):
         """
-        List all EC2 instances in the specified region.
+        get all EC2 instances in the specified region.
+        returns a list of dictionary items describing each EC2 instance whose instance_state matches the
+        state_filter
+        if there are no EC2 instances, an empty list is returned
+        TODO: use the filter in the AWS call
         """
-        ec2 = self.session.client("ec2")
-        response = ec2.describe_instances()
-        return response["Reservations"]
+        try:
+            ec2 = self.session.client("ec2")
+            response = ec2.describe_instances()
+        except Exception as e:
+            print(f"Unable to get instances description from AWS: {e}")
+            return []
+
+        instances_info = []
+
+        if response:
+            reservations = response.get("Reservations", [])
+            try:
+                for reservation in reservations:
+                    for instance in reservation.get("Instances", []):
+                        instance_state_name = instance.get("State", {}).get("Name", "")
+
+                        # Apply the state filter (default is 'running')
+                        # TO DO: use a filter above in the call to ec2.describe_instances()
+                        if state_filter and instance_state_name != state_filter:
+                            continue  # Skip this instance if it doesn't match the filter
+
+                        # Tags is a list and each element in the list is a dictionary
+                        ec2_instance_name = ""
+                        ec2_architecture = ""
+                        for tag in instance.get("Tags", []):
+                            key = tag.get("Key", "")
+                            value = tag.get("Value", "")
+                            if key == "Name":
+                                ec2_instance_name = value
+                            elif key == "architecture":
+                                ec2_architecture = value
+
+                        # Create a formatted string with instance details
+                        instance_info = {
+                            "name": ec2_instance_name,
+                            "architecture": ec2_architecture,
+                            "instance_id": instance.get("InstanceId", ""),
+                            "image_id": instance.get("ImageId", ""),
+                            "instance_type": instance.get("InstanceType", ""),
+                            "key_name": instance.get("KeyName", ""),
+                            "vpc_id": instance.get("VpcId", ""),
+                            "public_ip": instance.get("PublicIpAddress", "N/A"),
+                            "state": instance_state_name,
+                        }
+                        instances_info.append(instance_info)
+            except Exception as e:
+                print(f"An error occurred parsing EC2 instance information: {e}")
+        return instances_info
 
     def create_instance(
         self, image_id, instance_type, key_name, security_group_id, subnet_id

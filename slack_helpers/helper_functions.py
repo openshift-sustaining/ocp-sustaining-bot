@@ -17,7 +17,7 @@ def handle_help(say, user):
 def handle_create_rosa_cluster(say, user, text):
     cluster_name = text.replace("create-rosa-cluster", "").strip()
     rosa_helper = ROSAHelper(region="<provide-a-valid-region-name>")  # Set your region
-    rosa_helper.create_rosa_cluster(cluster_name)
+    rosa_helper.create_rosa_cluster(cluster_name, say)
 
 
 # Helper function to handle creating an OpenStack VM
@@ -43,3 +43,15 @@ def handle_create_aws_vm(say, user):
         "<subnet-id>",  # Replace with your subnet ID
     )
     say(f"Successfully created EC2 instance: {instance.id}")
+
+
+# Helper function to list AWS EC2 instances
+def handle_list_aws_vms(say, region):
+    ec2_helper = EC2Helper(region=region)  # Set your region
+    instances_info = ec2_helper.list_instances(state_filter="running")
+    if len(instances_info) == 0:
+        say("There are currently no running EC2 instances to retrieve")
+    else:
+        for instance_info in instances_info:
+            # TODO - format each dictionary element
+            say(f"\n*** AWS EC2 VM Details ***\n{str(instance_info)}\n")
