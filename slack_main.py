@@ -23,21 +23,30 @@ def mention_handler(body, say):
     text = body.get("event", {}).get("text", "").strip()
     region = config.AWS_DEFAULT_REGION
 
-    # Create a command mapping
-    commands = {
-        r"\bhelp\b": lambda: handle_help(say, user),
-        r"^create-rosa-cluster": lambda: handle_create_rosa_cluster(say, user, text),
-        r"^create-openstack-vm": lambda: handle_create_openstack_vm(say, user, text),
-        r"\bhello\b": lambda: handle_hello(say, user),
-        r"\bcreate_aws_vm\b": lambda: handle_create_aws_vm(say, user),
-        r"\blist_aws_vms\b": lambda: handle_list_aws_vms(say, region),
-    }
+    sub_strings = text.split(" ")
+    if len(sub_strings) > 1:
+        # remove the @ocp-sustaining-bot part from the text
+        sub_strings.pop(0)
+        text = " ".join(sub_strings)
+        # Create a command mapping
+        commands = {
+            r"\bhelp\b": lambda: handle_help(say, user),
+            r"^create-rosa-cluster": lambda: handle_create_rosa_cluster(
+                say, user, text
+            ),
+            r"^create-openstack-vm": lambda: handle_create_openstack_vm(
+                say, user, text
+            ),
+            r"\bhello\b": lambda: handle_hello(say, user),
+            r"\bcreate_aws_vm\b": lambda: handle_create_aws_vm(say, user),
+            r"\blist_aws_vms\b": lambda: handle_list_aws_vms(say, region),
+        }
 
-    # Check for command matches and execute the appropriate handler
-    for pattern, handler in commands.items():
-        if re.search(pattern, text, re.IGNORECASE):
-            handler()  # Execute the handler
-            return
+        # Check for command matches and execute the appropriate handler
+        for pattern, handler in commands.items():
+            if re.search(pattern, text, re.IGNORECASE):
+                handler()  # Execute the handler
+                return
 
     # If no match is found, provide a default message
     say(
