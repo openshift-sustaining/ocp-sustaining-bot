@@ -53,4 +53,5 @@ def handle_list_aws_vms(say, region):
         say("There are currently no running EC2 instances to retrieve")
     else:
         for instance_info in instances_info:
-            say(f"\n*** AWS EC2 VM Details ***\n{instance_info}\n")
+            # TODO - format each dictionary element
+            say(f"\n*** AWS EC2 VM Details ***\n{str(instance_info)}\n")
