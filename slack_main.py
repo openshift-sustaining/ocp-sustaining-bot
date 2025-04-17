@@ -3,6 +3,8 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
 import re
 
+from log import create_logger
+
 from slack_helpers.helper_functions import (
     handle_help,
     handle_create_rosa_cluster,
@@ -11,6 +13,8 @@ from slack_helpers.helper_functions import (
     handle_create_aws_vm,
     handle_list_aws_vms,
 )
+
+logger = create_logger()
 
 app = App(token=config.SLACK_BOT_TOKEN)
 
@@ -47,6 +51,6 @@ def mention_handler(body, say):
 
 # Main Entry Point
 if __name__ == "__main__":
-    print("Starting Slack bot...")
+    logger.info("Starting Slack bot...")
     handler = SocketModeHandler(app, config.SLACK_APP_TOKEN)
     handler.start()
