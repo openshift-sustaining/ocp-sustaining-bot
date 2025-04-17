@@ -1,5 +1,7 @@
 import boto3
 from config import config
+from helpers.general_helper import generate_server_status_dict
+from helpers.server_info import ServerInfo, ServerType
 
 
 class EC2Helper:
@@ -88,7 +90,17 @@ class EC2Helper:
                 instance_params["SubnetId"] = subnet_id
 
             instances = ec2.create_instances(**instance_params)
-            return instances[0]
+            if instances and len(instances > 0):
+                server_name = instances[0].instance_id
+                messages = ["Server created successfully"]
+                server_info = ServerInfo(
+                    server_name,
+                    ServerType.AWS_EC2_INSTANCE,
+                    True,
+                    instances[0],
+                    messages,
+                )
+                return generate_server_status_dict(True, messages, server_info)
         except Exception as e:
             print(f"An error occurred: {e}")
             return None

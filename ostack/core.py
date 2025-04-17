@@ -1,5 +1,7 @@
 from openstack import connection
 from config import config
+from helpers.general_helper import generate_server_status_dict
+from helpers.server_info import ServerInfo, ServerType
 
 
 class OpenStackHelper:
@@ -39,7 +41,7 @@ class OpenStackHelper:
             messages.append(
                 "Usage: `create-openstack-vm <name> <image> <flavor> <network>`"
             )
-            return messages, None
+            return generate_server_status_dict(False, messages, None)
 
         name, image, flavor, network = args
 
@@ -50,7 +52,10 @@ class OpenStackHelper:
                 name=name, image=image, flavor=flavor, networks=[{"uuid": network}]
             )
             messages.append(f"VM {server.name} created successfully in OpenStack!")
-            return messages, server
+            server_info = ServerInfo(
+                name, ServerType.OPENSTACK_INSTANCE, True, server, messages
+            )
+            return generate_server_status_dict(True, messages, server_info)
         except Exception as e:
             print(f"Error creating OpenStack VM: {str(e)}")
             raise e
