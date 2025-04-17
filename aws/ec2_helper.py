@@ -91,7 +91,7 @@ class EC2Helper:
 
             instances = ec2.create_instances(**instance_params)
             if instances and len(instances > 0):
-                server_name = instances[0].instance_id
+                server_name = instances[0].id
                 messages = ["Server created successfully"]
                 server_info = ServerInfo(
                     server_name,

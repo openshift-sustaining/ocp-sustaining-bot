@@ -44,7 +44,7 @@ def handle_create_aws_vm(say, user, region):
         )
         if server_status_dict and is_server_created_ok(server_status_dict):
             say(
-                f"Successfully created EC2 instance: {get_field_from_server_info('instance_id', server_status_dict)}"
+                f"Successfully created EC2 instance: {get_field_from_server_info('id', server_status_dict)}"
             )
         else:
             say("Unable to create EC2 instance")
