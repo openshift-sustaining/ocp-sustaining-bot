@@ -1,5 +1,7 @@
 from openstack import connection
 from config import config
+from helpers.general_helper import generate_server_status_dict
+from helpers.server_info import ServerInfo, ServerType
 
 
 class OpenStackHelper:
@@ -27,33 +29,33 @@ class OpenStackHelper:
         """
         return [server.name for server in self.conn.compute.servers()]
 
-    def create_vm(self, args, say):
+    def create_vm(self, args):
         """
         Create an OpenStack VM with the specified parameters provided as a list of arguments.
-        If `say` is provided, it will send messages back to Slack.
 
         :param args: List of arguments: [name, image, flavor, network]
-        :param say: (optional) Slack messaging function for feedback
-        :return: The created server object
+        :return: tuple of (list of messages, The created server object)
         """
+        messages = []
         if len(args) != 4:
-            if say:
-                say("Usage: `create-openstack-vm <name> <image> <flavor> <network>`")
-                return
+            messages.append(
+                "Usage: `create-openstack-vm <name> <image> <flavor> <network>`"
+            )
+            return generate_server_status_dict(False, messages, None)
 
         name, image, flavor, network = args
 
-        if say:
-            say(f"Creating OpenStack VM: {name}...")
+        messages.append(f"Creating OpenStack VM: {name}...")
 
         try:
             server = self.conn.compute.create_server(
                 name=name, image=image, flavor=flavor, networks=[{"uuid": network}]
             )
-            if say:
-                say(f"VM {server.name} created successfully in OpenStack!")
-            return server
+            messages.append(f"VM {server.name} created successfully in OpenStack!")
+            server_info = ServerInfo(
+                name, ServerType.OPENSTACK_INSTANCE, True, server, messages
+            )
+            return generate_server_status_dict(True, messages, server_info)
         except Exception as e:
-            if say:
-                say(f"Error creating OpenStack VM: {str(e)}")
+            print(f"Error creating OpenStack VM: {str(e)}")
             raise e
