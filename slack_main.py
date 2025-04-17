@@ -2,6 +2,7 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
 import re
+import logging
 
 from slack_handlers.handlers import (
     handle_help,
@@ -10,6 +11,8 @@ from slack_handlers.handlers import (
     handle_create_aws_vm,
     handle_list_aws_vms,
 )
+
+logger = logging.getLogger(__name__)
 
 app = App(token=config.SLACK_BOT_TOKEN)
 
@@ -58,6 +61,6 @@ def mention_handler(body, say):
 
 # Main Entry Point
 if __name__ == "__main__":
-    print("Starting Slack bot...")
+    logger.info("Starting Slack bot...")
     handler = SocketModeHandler(app, config.SLACK_APP_TOKEN)
     handler.start()
