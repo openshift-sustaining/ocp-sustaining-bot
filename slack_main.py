@@ -27,7 +27,11 @@ def mention_handler(body, say):
     if len(sub_strings) > 1:
         # remove the @ocp-sustaining-bot part from the text
         sub_strings.pop(0)
-        text = " ".join(sub_strings)
+        # remove any empty strings which will be there if there were > 1 spaces between parameters
+        substrings_no_empty_strings = [
+            sub_string for sub_string in sub_strings if sub_string != ""
+        ]
+        text = " ".join(substrings_no_empty_strings)
         # Create a command mapping
         commands = {
             r"\bhelp\b": lambda: handle_help(say, user),
