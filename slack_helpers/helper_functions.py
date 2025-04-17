@@ -1,6 +1,5 @@
 from aws.ec2_helper import EC2Helper
 from helpers.general_helper import (
-    get_messages_info,
     is_server_created_ok,
     get_field_from_server_info,
 )
