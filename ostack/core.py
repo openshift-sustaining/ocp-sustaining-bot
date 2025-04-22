@@ -36,7 +36,7 @@ class OpenStackHelper:
         """
         if len(args) != 4:
             # todo: replace with log error
-            print(f"create-openstack-vm: Invalid parameters supplied")
+            print("create-openstack-vm: Invalid parameters supplied")
             raise ValueError(
                 "Invalid parameters: Usage: `create-openstack-vm <name> <image> <flavor> <network>`"
             )
