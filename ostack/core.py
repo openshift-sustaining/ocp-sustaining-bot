@@ -1,7 +1,5 @@
 from openstack import connection
 from config import config
-from helpers.general_helper import generate_server_status_dict
-from helpers.server_info import ServerInfo, ServerType
 
 
 class OpenStackHelper:
@@ -34,28 +32,35 @@ class OpenStackHelper:
         Create an OpenStack VM with the specified parameters provided as a list of arguments.
 
         :param args: List of arguments: [name, image, flavor, network]
-        :return: tuple of (list of messages, The created server object)
+        :return: dictionary
         """
-        messages = []
         if len(args) != 4:
-            messages.append(
-                "Usage: `create-openstack-vm <name> <image> <flavor> <network>`"
+            # todo: replace with log error
+            print(f"create-openstack-vm: Invalid parameters supplied")
+            raise ValueError(
+                "Invalid parameters: Usage: `create-openstack-vm <name> <image> <flavor> <network>`"
             )
-            return generate_server_status_dict(False, messages, None)
 
         name, image, flavor, network = args
 
-        messages.append(f"Creating OpenStack VM: {name}...")
+        # todo: replace with log info
+        print(f"Creating OpenStack VM: {name}...")
 
         try:
             server = self.conn.compute.create_server(
                 name=name, image=image, flavor=flavor, networks=[{"uuid": network}]
             )
-            messages.append(f"VM {server.name} created successfully in OpenStack!")
-            server_info = ServerInfo(
-                name, ServerType.OPENSTACK_INSTANCE, True, server, messages
-            )
-            return generate_server_status_dict(True, messages, server_info)
+            # todo: replace with log info
+            print(f"VM {server.name} created successfully in OpenStack!")
+            # todo: add additional information to server_info dictionary later
+            server_info = {
+                "name": server.name,
+            }
+            return {
+                "count": 1,
+                "instances": [server_info],
+            }
         except Exception as e:
+            # todo: replace with log error
             print(f"Error creating OpenStack VM: {str(e)}")
             raise e

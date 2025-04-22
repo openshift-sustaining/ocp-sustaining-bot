@@ -1,8 +1,4 @@
 from aws.ec2_helper import EC2Helper
-from helpers.general_helper import (
-    is_server_created_ok,
-    get_field_from_server_info,
-)
 from ostack.core import OpenStackHelper
 
 
@@ -42,10 +38,12 @@ def handle_create_aws_vm(say, user, region):
             "<security-group-id>",  # Replace with your security group ID
             "<subnet-id>",  # Replace with your subnet ID
         )
-        if server_status_dict and is_server_created_ok(server_status_dict):
-            say(
-                f"Successfully created EC2 instance: {get_field_from_server_info('id', server_status_dict)}"
-            )
+        if server_status_dict:
+            servers_created = server_status_dict.get("instances", [])
+            if len(servers_created) == 1:
+                say(
+                    f"Successfully created EC2 instance: {servers_created[0].get('name', 'unknown')}"
+                )
         else:
             say("Unable to create EC2 instance")
     except Exception as e:
@@ -56,11 +54,12 @@ def handle_create_aws_vm(say, user, region):
 def handle_list_aws_vms(say, region):
     try:
         ec2_helper = EC2Helper(region=region)  # Set your region
-        instances_info = ec2_helper.list_instances(state_filter="running")
-        if len(instances_info) == 0:
+        instances_dict = ec2_helper.list_instances(state_filter="running")
+        count_servers = instances_dict.get("count", 0)
+        if count_servers == 0:
             say("There are currently no running EC2 instances to retrieve")
         else:
-            for instance_info in instances_info:
+            for instance_info in instances_dict.get("instances", []):
                 # TODO - format each dictionary element
                 say(f"\n*** AWS EC2 VM Details ***\n{str(instance_info)}\n")
     except Exception as e:
