@@ -27,33 +27,40 @@ class OpenStackHelper:
         """
         return [server.name for server in self.conn.compute.servers()]
 
-    def create_vm(self, args, say):
+    def create_vm(self, args):
         """
         Create an OpenStack VM with the specified parameters provided as a list of arguments.
-        If `say` is provided, it will send messages back to Slack.
 
         :param args: List of arguments: [name, image, flavor, network]
-        :param say: (optional) Slack messaging function for feedback
-        :return: The created server object
+        :return: dictionary
         """
         if len(args) != 4:
-            if say:
-                say("Usage: `create-openstack-vm <name> <image> <flavor> <network>`")
-                return
+            # todo: replace with log error
+            print("create-openstack-vm: Invalid parameters supplied")
+            raise ValueError(
+                "Invalid parameters: Usage: `create-openstack-vm <name> <image> <flavor> <network>`"
+            )
 
         name, image, flavor, network = args
 
-        if say:
-            say(f"Creating OpenStack VM: {name}...")
+        # todo: replace with log info
+        print(f"Creating OpenStack VM: {name}...")
 
         try:
             server = self.conn.compute.create_server(
                 name=name, image=image, flavor=flavor, networks=[{"uuid": network}]
             )
-            if say:
-                say(f"VM {server.name} created successfully in OpenStack!")
-            return server
+            # todo: replace with log info
+            print(f"VM {server.name} created successfully in OpenStack!")
+            # todo: add additional information to server_info dictionary later
+            server_info = {
+                "name": server.name,
+            }
+            return {
+                "count": 1,
+                "instances": [server_info],
+            }
         except Exception as e:
-            if say:
-                say(f"Error creating OpenStack VM: {str(e)}")
+            # todo: replace with log error
+            print(f"Error creating OpenStack VM: {str(e)}")
             raise e

@@ -5,7 +5,6 @@ import re
 
 from slack_helpers.helper_functions import (
     handle_help,
-    handle_create_rosa_cluster,
     handle_create_openstack_vm,
     handle_hello,
     handle_create_aws_vm,
@@ -23,21 +22,33 @@ def mention_handler(body, say):
     text = body.get("event", {}).get("text", "").strip()
     region = config.AWS_DEFAULT_REGION
 
-    # Create a command mapping
-    commands = {
-        r"\bhelp\b": lambda: handle_help(say, user),
-        r"^create-rosa-cluster": lambda: handle_create_rosa_cluster(say, user, text),
-        r"^create-openstack-vm": lambda: handle_create_openstack_vm(say, user, text),
-        r"\bhello\b": lambda: handle_hello(say, user),
-        r"\bcreate_aws_vm\b": lambda: handle_create_aws_vm(say, user),
-        r"\blist_aws_vms\b": lambda: handle_list_aws_vms(say, region),
-    }
+    cmd_strings = text.split(" ")
+    if len(cmd_strings) > 0:
+        first_command = cmd_strings[0]
+        if first_command[:2] == "<@":
+            # remove the @ocp-sustaining-bot part from the text - it will have a value like '<@U08JUNY7PD4>'
+            cmd_strings.pop(0)
+        # remove any empty strings which will be there if there were > 1 spaces between parameters
+        valid_cmd_strings = [
+            sub_string for sub_string in cmd_strings if sub_string != ""
+        ]
+        text = " ".join(valid_cmd_strings)
+        # Create a command mapping
+        commands = {
+            r"\bhelp\b": lambda: handle_help(say, user),
+            r"^create-openstack-vm": lambda: handle_create_openstack_vm(
+                say, user, text
+            ),
+            r"\bhello\b": lambda: handle_hello(say, user),
+            r"\bcreate-aws-vm\b": lambda: handle_create_aws_vm(say, user, region),
+            r"\blist-aws-vms\b": lambda: handle_list_aws_vms(say, region),
+        }
 
-    # Check for command matches and execute the appropriate handler
-    for pattern, handler in commands.items():
-        if re.search(pattern, text, re.IGNORECASE):
-            handler()  # Execute the handler
-            return
+        # Check for command matches and execute the appropriate handler
+        for pattern, handler in commands.items():
+            if re.search(pattern, text, re.IGNORECASE):
+                handler()  # Execute the handler
+                return
 
     # If no match is found, provide a default message
     say(
