@@ -1,5 +1,5 @@
-from apisdk.sdk.aws.ec2 import EC2Helper
-from apisdk.sdk.openstack.core import OpenStackHelper
+from sdk.aws.ec2 import EC2Helper
+from sdk.openstack.core import OpenStackHelper
 
 
 # Helper function to handle the "help" command
