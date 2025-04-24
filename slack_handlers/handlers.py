@@ -1,5 +1,5 @@
-from aws.ec2_helper import EC2Helper
-from ostack.core import OpenStackHelper
+from sdk.aws.ec2 import EC2Helper
+from sdk.openstack.core import OpenStackHelper
 
 
 # Helper function to handle the "help" command

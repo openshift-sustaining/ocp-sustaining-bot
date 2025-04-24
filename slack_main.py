@@ -3,7 +3,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
 import re
 
-from slack_helpers.helper_functions import (
+from slack_handlers.handlers import (
     handle_help,
     handle_create_openstack_vm,
     handle_hello,

@@ -41,8 +41,8 @@ cd ocp-sustaining-bot
 It’s recommended to use a virtual environment to manage dependencies:
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 ### 3. Install Dependencies
 
