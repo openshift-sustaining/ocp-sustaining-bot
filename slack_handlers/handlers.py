@@ -22,6 +22,27 @@ def handle_create_openstack_vm(say, user, text):
         say(f"An error occurred creating the openstack VM : {e}")
 
 
+# Helper function to list OpenStack VMs with error handling
+def handle_list_openstack_vms(say):
+    try:
+        helper = OpenStackHelper()
+        servers = helper.list_servers()
+
+        if not servers:
+            say(":no_entry_sign: There are currently *no ACTIVE VMs* in OpenStack.")
+            return
+
+        result = {"count": len(servers), "instances": servers}
+
+        say("*OpenStack ACTIVE VMs:*")
+        say(f"```{result}```")
+
+    except Exception as e:
+        # Log the error for debugging purposes
+        print(f"[ERROR] Failed to list OpenStack VMs: {e}")
+        say(":x: An error occurred while fetching the list of VMs.")
+
+
 # Helper function to handle greeting
 def handle_hello(say, user):
     say(f"Hello <@{user}>! How can I assist you today?")

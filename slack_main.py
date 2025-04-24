@@ -6,6 +6,7 @@ import re
 from slack_handlers.handlers import (
     handle_help,
     handle_create_openstack_vm,
+    handle_list_openstack_vms,
     handle_hello,
     handle_create_aws_vm,
     handle_list_aws_vms,
@@ -39,6 +40,7 @@ def mention_handler(body, say):
             r"^create-openstack-vm": lambda: handle_create_openstack_vm(
                 say, user, text
             ),
+            r"\blist-openstack-vms\b": lambda: handle_list_openstack_vms(say),
             r"\bhello\b": lambda: handle_hello(say, user),
             r"\bcreate-aws-vm\b": lambda: handle_create_aws_vm(say, user, region),
             r"\blist-aws-vms\b": lambda: handle_list_aws_vms(say, region),
