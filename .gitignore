@@ -1,5 +1,21 @@
-.env
-.ruff_cache/
+# Byte-compiled / optimized / DLL files
 __pycache__/
+
+# Unit test / coverage reports
+.pytest_cache/
+
+# Environments
+.env
 .venv
+env/
+venv/
+
+# IDE settings
+.idea/
+.vscode/
+
+# Ruff stuff:
+.ruff_cache/
+
+# Mac OS
 .DS_Store
