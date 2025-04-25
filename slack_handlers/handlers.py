@@ -1,5 +1,8 @@
 from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Helper function to handle the "help" command
@@ -19,7 +22,8 @@ def handle_create_openstack_vm(say, user, text):
         os_helper = OpenStackHelper()
         os_helper.create_vm(args)
     except Exception as e:
-        say(f"An error occurred creating the openstack VM : {e}")
+        logger.error(f"An error occurred creating the openstack VM : {e}")
+        say("An internal error occurred, please contact administrator.")
 
 
 # Helper function to handle greeting
@@ -47,7 +51,8 @@ def handle_create_aws_vm(say, user, region):
         else:
             say("Unable to create EC2 instance")
     except Exception as e:
-        say(f"An error occurred creating the EC2 instance : {e}")
+        logger.error(f"An error occurred creating the EC2 instance: {e}")
+        say("An internal error occurred, please contact administrator.")
 
 
 # Helper function to list AWS EC2 instances
@@ -63,4 +68,5 @@ def handle_list_aws_vms(say, region):
                 # TODO - format each dictionary element
                 say(f"\n*** AWS EC2 VM Details ***\n{str(instance_info)}\n")
     except Exception as e:
-        say(f"An error occurred listing the EC2 instances : {e}")
+        logger.error(f"An error occurred listing the EC2 instances: {e}")
+        say("An internal error occurred, please contact administrator.")
