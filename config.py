@@ -1,3 +1,4 @@
+import logging
 import os
 from dotenv import load_dotenv
 
@@ -40,12 +41,22 @@ class Config:
                 setattr(self, key, value)
 
             except ValueError as e:
-                print(f"Error: {e}")
+                logging.error(f"Error: {e}")
                 raise
 
             except Exception as e:
-                print(f"Unexpected error with environment variable {key}: {e}")
+                logging.error(f"Unexpected error with environment variable {key}: {e}")
                 raise
+
+        log_level = os.getenv("LOG_LEVEL", "INFO")
+        self.log_level = log_level.upper()
+
+        self.setup_logging()
+
+    def setup_logging(self):
+        log_format = "[%(asctime)s %(levelname)s %(name)s] %(message)s"
+
+        logging.basicConfig(level=self.log_level, format=log_format)
 
 
 config = Config()
