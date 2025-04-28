@@ -1,5 +1,6 @@
 import boto3
 from config import config
+from tools.helpers import get_values_for_key_from_dict_of_parameters
 
 
 class EC2Helper:
@@ -11,15 +12,37 @@ class EC2Helper:
             region_name=self.region,
         )
 
-    def list_instances(self, state_filter="running"):
+    def list_instances(self, params_dict=None):
         """
         get all EC2 instances in the specified region.
         returns a dictionary with information on server instances
-        TODO: use the filter in the AWS call
         """
+        if params_dict is None:
+            params_dict = {}
         try:
             ec2 = self.session.client("ec2")
-            response = ec2.describe_instances()
+
+            # instance ids to retrieve
+            instance_ids = get_values_for_key_from_dict_of_parameters(
+                "--instance-ids", params_dict
+            )
+
+            filters = []
+            state_filters = get_values_for_key_from_dict_of_parameters(
+                "--state", params_dict
+            )
+            if state_filters:
+                filters.append({"Name": "instance-state-name", "Values": state_filters})
+
+            instance_type_filters = get_values_for_key_from_dict_of_parameters(
+                "--type", params_dict
+            )
+            if instance_type_filters:
+                filters.append(
+                    {"Name": "instance-type", "Values": instance_type_filters}
+                )
+
+            response = ec2.describe_instances(InstanceIds=instance_ids, Filters=filters)
         except Exception as e:
             # TODO: replace print with log error
             print(f"Unable to get instances description from AWS: {e}")
@@ -32,11 +55,6 @@ class EC2Helper:
             for reservation in reservations:
                 for instance in reservation.get("Instances", []):
                     instance_state_name = instance.get("State", {}).get("Name", "")
-
-                    # Apply the state filter (default is 'running')
-                    # TO DO: use a filter above in the call to ec2.describe_instances()
-                    if state_filter and instance_state_name != state_filter:
-                        continue  # Skip this instance if it doesn't match the filter
 
                     # Tags is a list and each element in the list is a dictionary
                     ec2_instance_name = ""

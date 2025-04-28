@@ -44,7 +44,7 @@ def mention_handler(body, say):
             ),
             r"\bhello\b": lambda: handle_hello(say, user),
             r"\bcreate-aws-vm\b": lambda: handle_create_aws_vm(say, user, region),
-            r"\blist-aws-vms\b": lambda: handle_list_aws_vms(say, region),
+            r"\blist-aws-vms\b": lambda: handle_list_aws_vms(say, region, user, text),
         }
 
         # Check for command matches and execute the appropriate handler

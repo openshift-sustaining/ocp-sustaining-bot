@@ -1,5 +1,6 @@
 from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
+from tools.helpers import get_dict_of_command_parameters
 
 
 # Helper function to handle the "help" command
@@ -51,10 +52,12 @@ def handle_create_aws_vm(say, user, region):
 
 
 # Helper function to list AWS EC2 instances
-def handle_list_aws_vms(say, region):
+def handle_list_aws_vms(say, region, user, text):
     try:
+        params_dict = get_dict_of_command_parameters(text, ["list-aws-vms"])
+
         ec2_helper = EC2Helper(region=region)  # Set your region
-        instances_dict = ec2_helper.list_instances(state_filter="running")
+        instances_dict = ec2_helper.list_instances(params_dict)
         count_servers = instances_dict.get("count", 0)
         if count_servers == 0:
             say("There are currently no running EC2 instances to retrieve")
