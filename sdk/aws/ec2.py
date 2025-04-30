@@ -1,6 +1,9 @@
 import boto3
 from config import config
 from sdk.tools.helpers import get_values_for_key_from_dict_of_parameters
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EC2Helper:
@@ -44,8 +47,7 @@ class EC2Helper:
 
             response = ec2.describe_instances(InstanceIds=instance_ids, Filters=filters)
         except Exception as e:
-            # TODO: replace print with log error
-            print(f"Unable to get instances description from AWS: {e}")
+            logger.error(f"Unable to get instances description from AWS: {e}")
             raise e
 
         instances_info = []
@@ -106,7 +108,7 @@ class EC2Helper:
             instances = ec2.create_instances(**instance_params)
             if instances and len(instances > 0):
                 server_name = instances[0].id
-                print(f"Server {server_name} created successfully")
+                logger.info(f"Server {server_name} created successfully")
                 server_info = {
                     "name": server_name,
                     "key_name": key_name,
@@ -117,6 +119,5 @@ class EC2Helper:
                     "instances": [server_info],
                 }
         except Exception as e:
-            # TODO: replace print with log error
-            print(f"An error occurred creating the EC2 instance {e}")
+            logger.error(f"An error occurred creating the EC2 instance {e}")
             raise e
