@@ -15,7 +15,8 @@ def get_dict_of_command_parameters(command_line: str, texts_to_remove=None):
         if len(valid_cmd_strings) > 1:
             valid_cmd_strings = valid_cmd_strings[1:]
             command_params_dict = dict(
-                (k.replace('--',''), v) for k, v in (pair.split("=") for pair in valid_cmd_strings)
+                (k.replace("--", ""), v)
+                for k, v in (pair.split("=") for pair in valid_cmd_strings)
             )
     return command_params_dict
 

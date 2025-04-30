@@ -60,7 +60,11 @@ def handle_list_aws_vms(say, region, user, command_line):
         instances_dict = ec2_helper.list_instances(params_dict)
         count_servers = instances_dict.get("count", 0)
         if count_servers == 0:
-            msg = "There are currently no EC2 instances available that match the specified criteria" if len(params_dict) > 0 else "There are currently no EC2 instances to retrieve"
+            msg = (
+                "There are currently no EC2 instances available that match the specified criteria"
+                if len(params_dict) > 0
+                else "There are currently no EC2 instances to retrieve"
+            )
             say(msg)
         else:
             for instance_info in instances_dict.get("instances", []):
