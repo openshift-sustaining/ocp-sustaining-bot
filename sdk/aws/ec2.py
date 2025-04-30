@@ -1,6 +1,6 @@
 import boto3
 from config import config
-from tools.helpers import get_values_for_key_from_dict_of_parameters
+from sdk.tools.helpers import get_values_for_key_from_dict_of_parameters
 
 
 class EC2Helper:
@@ -24,18 +24,18 @@ class EC2Helper:
 
             # instance ids to retrieve
             instance_ids = get_values_for_key_from_dict_of_parameters(
-                "--instance-ids", params_dict
+                "instance-ids", params_dict
             )
 
             filters = []
             state_filters = get_values_for_key_from_dict_of_parameters(
-                "--state", params_dict
+                "state", params_dict
             )
             if state_filters:
                 filters.append({"Name": "instance-state-name", "Values": state_filters})
 
             instance_type_filters = get_values_for_key_from_dict_of_parameters(
-                "--type", params_dict
+                "type", params_dict
             )
             if instance_type_filters:
                 filters.append(
