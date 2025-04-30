@@ -1,5 +1,8 @@
 from openstack import connection
 from config import config
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class OpenStackHelper:
@@ -35,23 +38,20 @@ class OpenStackHelper:
         :return: dictionary
         """
         if len(args) != 4:
-            # todo: replace with log error
-            print("create-openstack-vm: Invalid parameters supplied")
+            logger.error("create-openstack-vm: Invalid parameters supplied")
             raise ValueError(
                 "Invalid parameters: Usage: `create-openstack-vm <name> <image> <flavor> <network>`"
             )
 
         name, image, flavor, network = args
 
-        # todo: replace with log info
-        print(f"Creating OpenStack VM: {name}...")
+        logger.info(f"Creating OpenStack VM: {name}...")
 
         try:
             server = self.conn.compute.create_server(
                 name=name, image=image, flavor=flavor, networks=[{"uuid": network}]
             )
-            # todo: replace with log info
-            print(f"VM {server.name} created successfully in OpenStack!")
+            logger.info(f"VM {server.name} created successfully in OpenStack!")
             # todo: add additional information to server_info dictionary later
             server_info = {
                 "name": server.name,
@@ -61,6 +61,5 @@ class OpenStackHelper:
                 "instances": [server_info],
             }
         except Exception as e:
-            # todo: replace with log error
-            print(f"Error creating OpenStack VM: {str(e)}")
+            logger.error(f"Error creating OpenStack VM: {str(e)}")
             raise e
