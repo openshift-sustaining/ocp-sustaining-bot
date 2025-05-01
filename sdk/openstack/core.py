@@ -15,7 +15,6 @@ class OpenStackHelper:
     ):
         self.conn = connection.Connection(
             auth_url=config.OS_AUTH_URL,
-            project_id=config.OS_PROJECT_ID,
             application_credential_id=config.OS_APP_CRED_ID,
             application_credential_secret=config.OS_APP_CRED_SECRET,
             region_name=config.OS_REGION_NAME,
@@ -24,11 +23,56 @@ class OpenStackHelper:
             auth_type=config.OS_AUTH_TYPE,
         )
 
-    def list_servers(self):
+    def list_servers(self, status_filter):
         """
-        List all servers in OpenStack.
+        List all OpenStack VMs, optionally filtered by status (e.g., 'ACTIVE', 'SHUTOFF').
+        Returns a list of dictionaries with basic VM info.
         """
-        return [server.name for server in self.conn.compute.servers()]
+        servers_info = []
+        try:
+            # Iterate through all servers
+            print(f"[DEBUG] Filtering VMs with status: {status_filter}")
+            for server in self.conn.compute.servers(status=status_filter):
+                # Initialize IP-related fields
+                networks = server.addresses or {}
+                ip_addr, ip_version, net_name = None, None, None
+
+                # Prioritize floating IP, fallback to fixed if not available
+                for net, ips in networks.items():
+                    for ip_info in ips:
+                        if ip_info.get("OS-EXT-IPS:type") == "floating":
+                            ip_addr = ip_info.get("addr")
+                            ip_version = ip_info.get("version")
+                            net_name = net
+                            break
+                        elif not ip_addr and ip_info.get("OS-EXT-IPS:type") == "fixed":
+                            ip_addr = ip_info.get("addr")
+                            ip_version = ip_info.get("version")
+                            net_name = net
+
+                # Collect server details
+                servers_info.append(
+                    {
+                        "name": server.name,
+                        "server_id": server.id,
+                        "flavor": server.flavor.get("original_name")
+                        or server.flavor.get("id"),
+                        "availability_zone": server.availability_zone,
+                        "network": net_name,
+                        "ip_version": ip_version,
+                        "public_ip": ip_addr,
+                        "key_name": getattr(server, "key_name", "N/A"),
+                        "status": server.status,
+                    }
+                )
+
+            print(
+                f"[OpenStackHelper] Retrieved {len(servers_info)} servers with status='{status_filter}'"
+            )
+            return servers_info
+        except Exception as e:
+            print(f"[OpenStackHelper] Error listing servers: {e}")
+            return []
 
     def create_vm(self, args):
         """
