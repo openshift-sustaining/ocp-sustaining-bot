@@ -28,10 +28,17 @@ class OpenStackHelper:
         List all OpenStack VMs, optionally filtered by status (e.g., 'ACTIVE', 'SHUTOFF').
         Returns a list of dictionaries with basic VM info.
         """
+        VALID_STATUSES = {"ACTIVE", "SHUTOFF"}
+
+        if status_filter not in VALID_STATUSES:
+            logger.error(f"Received unsupported status filter: {status_filter}.")
+            return {
+                "error": f"Invalid status filter '{status_filter}'. Supported: {', '.join(sorted(VALID_STATUSES))}"
+            }
+
         servers_info = []
         try:
             # Iterate through all servers
-            print(f"[DEBUG] Filtering VMs with status: {status_filter}")
             for server in self.conn.compute.servers(status=status_filter):
                 # Initialize IP-related fields
                 networks = server.addresses or {}
@@ -66,13 +73,18 @@ class OpenStackHelper:
                     }
                 )
 
-            print(
-                f"[OpenStackHelper] Retrieved {len(servers_info)} servers with status='{status_filter}'"
+            # Log the number of servers retrieved
+            logger.info(
+                f"Retrieved {len(servers_info)} servers with status filter '{status_filter}'."
             )
-            return servers_info
+            return {"count": len(servers_info), "instances": servers_info}
+
         except Exception as e:
-            print(f"[OpenStackHelper] Error listing servers: {e}")
-            return []
+            # Log the exception that occurred during the listing process
+            logger.exception(
+                f"Error listing servers with status filter '{status_filter}': {e}"
+            )
+            raise e
 
     def create_vm(self, args):
         """

@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 
 # Helper function to handle the "help" command
 def handle_help(say, user):
+    logger.debug(
+        f"Help command invoked by user: {user}. Sending list of available commands."
+    )
     say(
         f"Hello <@{user}>! I'm here to help. You can use the following commands:\n"
         "`create-openstack-vm <name> <image> <flavor> <network>`: Create an OpenStack VM.\n"
@@ -30,8 +33,6 @@ def handle_create_openstack_vm(say, user, text):
 # Helper function to list OpenStack VMs with error handling
 def handle_list_openstack_vms(say, command_text=""):
     try:
-        # Define valid status filters
-        VALID_STATUSES = {"ACTIVE", "SHUTOFF"}
         # Default to ACTIVE if nothing passed
         status_filter = "ACTIVE"
         args = command_text.strip().split()
@@ -45,32 +46,29 @@ def handle_list_openstack_vms(say, command_text=""):
                 status_filter = arg.split("=", 1)[1].upper()
                 break
 
-        # Validate the provided status
-        if status_filter not in VALID_STATUSES:
-            say(
-                f":warning: Invalid status filter *{status_filter}*. Supported values are: {', '.join(sorted(VALID_STATUSES))}"
-            )
-            return
-
-        print(f"Status Filter: {status_filter}")
+        # Log the status filter being used
+        logger.info(f"Filtering OpenStack VMs with status filter: {status_filter}.")
 
         helper = OpenStackHelper()
         servers = helper.list_servers(status_filter=status_filter)
 
-        result = {"count": len(servers), "instances": servers}
+        # Check for error returned from main function
+        if "error" in servers:
+            say(f":warning: {servers['error']}")
+            return
 
-        if result["count"] == 0:
+        if servers["count"] == 0:
             say(
                 f":no_entry_sign: There are currently no VMs in the *{status_filter}* state in OpenStack."
             )
             return
 
         say(f"*OpenStack {status_filter} VMs:*")
-        say(f"```{result}```")
+        say(f"```{servers}```")
 
     except Exception as e:
         # Log the error for debugging purposes
-        print(f"[ERROR] Failed to list OpenStack VMs: {e}")
+        logger.error(f"Failed to list OpenStack VMs: {e}")
         say(":x: An error occurred while fetching the list of VMs.")
 
 
