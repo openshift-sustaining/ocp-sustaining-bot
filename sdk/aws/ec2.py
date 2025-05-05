@@ -88,18 +88,27 @@ class EC2Helper:
                 instance_params["SubnetId"] = subnet_id
 
             instances = ec2.create_instances(**instance_params)
-            if instances and len(instances > 0):
-                server_name = instances[0].id
-                logger.info(f"Server {server_name} created successfully")
-                server_info = {
-                    "name": server_name,
-                    "key_name": key_name,
-                    "instance_type": instance_type,
-                }
+
+            if not instances:
+                logger.warning(f"Unable to create EC2 instance: {instance_params}")
+
                 return {
-                    "count": 1,
-                    "instances": [server_info],
+                    "count": 0,
+                    "instances": [],
                 }
+
+            server_name = instances[0].id
+            logger.info(f"Server {server_name} created successfully")
+            server_info = {
+                "name": server_name,
+                "key_name": key_name,
+                "instance_type": instance_type,
+            }
+
+            return {
+                "count": 1,
+                "instances": [server_info],
+            }
         except Exception as e:
             logger.error(f"An error occurred creating the EC2 instance {e}")
             raise e
