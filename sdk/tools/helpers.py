@@ -1,4 +1,4 @@
-def get_dict_of_command_parameters(command_line: str, texts_to_remove=None):
+def get_dict_of_command_parameters(command_line: str):
     """
     Given
     1. command_line - the command line e.g. list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped
