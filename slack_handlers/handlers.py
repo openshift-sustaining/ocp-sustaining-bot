@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Helper function to handle the "help" command
 def handle_help(say, user):
-    logger.debug(
+    logger.info(
         f"Help command invoked by user: {user}. Sending list of available commands."
     )
     say(
