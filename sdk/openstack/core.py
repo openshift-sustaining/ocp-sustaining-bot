@@ -1,5 +1,6 @@
 from openstack import connection
 from config import config
+from sdk.tools.helpers import get_values_for_key_from_dict_of_parameters
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,21 +24,24 @@ class OpenStackHelper:
             auth_type=config.OS_AUTH_TYPE,
         )
 
-    def list_servers(self, status_filter):
+    def list_servers(self, params_dict=None):
         """
         List all OpenStack VMs, optionally filtered by status (e.g., 'ACTIVE', 'SHUTOFF').
         Returns a list of dictionaries with basic VM info.
         """
-        VALID_STATUSES = {"ACTIVE", "SHUTOFF"}
+        if params_dict is None:
+            params_dict = {}
 
-        if status_filter not in VALID_STATUSES:
-            logger.error(f"Received unsupported status filter: {status_filter}.")
-            return {
-                "error": f"Invalid status filter '{status_filter}'. Supported: {', '.join(sorted(VALID_STATUSES))}"
-            }
-
-        servers_info = []
         try:
+            # Extract status filters as a list
+            status_filter = get_values_for_key_from_dict_of_parameters(
+                "status", params_dict
+            )
+
+            # Default to ACTIVE if no status filter provided
+            status_filter = status_filter[0].upper() if status_filter else "ACTIVE"
+
+            servers_info = []
             # Iterate through all servers
             for server in self.conn.compute.servers(status=status_filter):
                 # Initialize IP-related fields

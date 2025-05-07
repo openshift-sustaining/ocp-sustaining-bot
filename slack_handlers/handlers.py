@@ -31,26 +31,28 @@ def handle_create_openstack_vm(say, user, text):
 
 
 # Helper function to list OpenStack VMs with error handling
-def handle_list_openstack_vms(say, command_text=""):
+def handle_list_openstack_vms(say, command_line=""):
     try:
-        # Default to ACTIVE if nothing passed
-        status_filter = "ACTIVE"
-        args = command_text.strip().split()
+        # Extract parameters using the utility function
+        params_dict = get_dict_of_command_parameters(command_line)
 
-        if not args:
-            status_filter = "ACTIVE"
+        # Define valid status filters
+        VALID_STATUSES = {"ACTIVE", "SHUTOFF"}
+        # Default to ACTIVE if no status filter provided
+        status_filter = params_dict.get("status", "ACTIVE").upper()
 
-        # Check for named argument like --status=shutoff
-        for arg in args:
-            if arg.startswith("--status="):
-                status_filter = arg.split("=", 1)[1].upper()
-                break
+        if status_filter not in VALID_STATUSES:
+            logger.error(f"Received unsupported status filter: {status_filter}.")
+            say(
+                f":warning: Invalid status filter *{status_filter}*. Supported values are: {', '.join(sorted(VALID_STATUSES))}"
+            )
+            return
 
         # Log the status filter being used
         logger.info(f"Filtering OpenStack VMs with status filter: {status_filter}.")
 
         helper = OpenStackHelper()
-        servers = helper.list_servers(status_filter=status_filter)
+        servers = helper.list_servers(params_dict)
 
         # Check for error returned from main function
         if "error" in servers:

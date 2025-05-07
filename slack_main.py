@@ -44,7 +44,7 @@ def mention_handler(body, say):
                 say, user, command_line
             ),
             r"^list-openstack-vms(\s+\S+)?": lambda: handle_list_openstack_vms(
-                say, text
+                say, command_line
             ),
             r"\bhello\b": lambda: handle_hello(say, user),
             r"\bcreate-aws-vm\b": lambda: handle_create_aws_vm(say, user, region),
