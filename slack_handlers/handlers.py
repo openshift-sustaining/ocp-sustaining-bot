@@ -2,6 +2,8 @@ from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
 from sdk.tools.helpers import get_dict_of_command_parameters
 import logging
+import pandas as pd
+
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +105,101 @@ def handle_create_aws_vm(say, user, region):
         say("An internal error occurred, please contact administrator.")
 
 
+def format_aligned_table(df):
+    """
+    Given a pandas dataframe df with column names and data, create a format aligned table of data with spaces as padding
+    and using a monospaced font (inside triple backticks)
+    """
+    if df and isinstance(df, pd.DataFrame) and not df.empty:
+        # Convert all columns to string and determine max width per column
+        col_widths = {
+            col: max(df[col].astype(str).map(len).max(), len(col)) for col in df.columns
+        }
+
+        # Format header
+        header = " | ".join(f"{col:<{col_widths[col]}}" for col in df.columns)
+        divider = "-+-".join("-" * col_widths[col] for col in df.columns)
+
+        # Format rows
+        rows = []
+        for _, row in df.iterrows():
+            # left-align the text with a width of col_widths[col] spaces
+            row_str = " | ".join(
+                f"{str(val):<{col_widths[col]}}" for col, val in row.items()
+            )
+            rows.append(row_str)
+        table = "\n".join([header, divider] + rows)
+        return f"```\n{table}\n```"
+    return ""
+
+
+def setup_slack_header_line(header_text, emoji_name="ledger"):
+    """
+    sets up a slack block consisting of an emoji and bold text. This is typically used for a header line
+    """
+    return [
+        {
+            "type": "rich_text",
+            "elements": [
+                {
+                    "type": "rich_text_section",
+                    "elements": [
+                        {"type": "emoji", "name": f"{emoji_name}"},
+                        {
+                            "type": "text",
+                            "text": f"{header_text}",
+                            "style": {"bold": True},
+                        },
+                    ],
+                }
+            ],
+        }
+    ]
+
+
+def setup_slack_list_vms(instances_dict):
+    """
+    Given instances_dict which is a dictionary with information on server instances, transfer the data to a Pandas
+    dataframe and then call format_aligned_table to generate a table containing this data
+    """
+    if instances_dict and isinstance(instances_dict, dict):
+        vms_df = pd.DataFrame(
+            columns=[
+                "Instance Id",
+                "Name",
+                "Flavor",
+                "State",
+                "Public IP",
+                "Private IP",
+            ]
+        )
+        for instance_info in instances_dict.get("instances", []):
+            row = [
+                instance_info.get("instance_id", "unknown"),
+                instance_info.get("name", "unknown"),
+                instance_info.get("instance_type", "unknown"),
+                instance_info.get("state", "unknown"),
+                instance_info.get("public_ip", "unknown"),
+                instance_info.get("private_ip", "unknown"),
+            ]
+            vms_df.loc[len(vms_df)] = row
+        return format_aligned_table(vms_df)
+    return ""
+
+
+def display_list_vms_in_slack(instances_dict, say):
+    """
+    given a dictionary containing instance information for servers, setup a header line and then display the data in
+    a "table"
+    """
+    if instances_dict and isinstance(instances_dict, dict) and len(instances_dict) > 0:
+        say(
+            text=".",
+            blocks=setup_slack_header_line(" Here are the requested VM instances:"),
+        )
+        say(setup_slack_list_vms(instances_dict))
+
+
 # Helper function to list AWS EC2 instances
 def handle_list_aws_vms(say, region, user, command_line):
     try:
@@ -119,9 +216,7 @@ def handle_list_aws_vms(say, region, user, command_line):
             )
             say(msg)
         else:
-            for instance_info in instances_dict.get("instances", []):
-                # TODO - format each dictionary element
-                say(f"\n*** AWS EC2 VM Details ***\n{str(instance_info)}\n")
+            display_list_vms_in_slack(instances_dict, say)
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
