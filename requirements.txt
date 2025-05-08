@@ -6,3 +6,4 @@ python-dotenv
 slack-bolt
 aiohttp
 pytest
+pandas
