@@ -2,22 +2,26 @@ from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
 from sdk.tools.helpers import get_dict_of_command_parameters
 import logging
-
+import traceback
 
 logger = logging.getLogger(__name__)
 
 
 # Helper function to handle the "help" command
 def handle_help(say, user):
-    logger.info(
-        f"Help command invoked by user: {user}. Sending list of available commands."
-    )
-    say(
-        f"Hello <@{user}>! I'm here to help. You can use the following commands:\n"
-        "`create-openstack-vm <name> <image> <flavor> <network>`: Create an OpenStack VM.\n"
-        "`list-aws-vms`\n"
-        "`hello`: Greet the bot."
-    )
+    try:
+        logger.info(
+            f"Help command invoked by user: {user}. Sending list of available commands."
+        )
+        say(
+            f"Hello <@{user}>! I'm here to help. You can use the following commands:\n"
+            "`create-openstack-vm <name> <image> <flavor> <network>`: Create an OpenStack VM.\n"
+            "`create-aws-vm <os_name> <instance_type> <key_pair>`: Create an AWS EC2 Instance.\n"
+            "`list-aws-vms`\n"
+            "`hello`: Greet the bot."
+        )
+    except Exception as e:
+        logger.error(f"Error in handle_help: {e}")
 
 
 # Helper function to handle creating an OpenStack VM
@@ -80,28 +84,125 @@ def handle_hello(say, user):
     say(f"Hello <@{user}>! How can I assist you today?")
 
 
-# Helper function to handle creating an AWS EC2 instances
-def handle_create_aws_vm(say, user, region):
+def handle_create_aws_vm(say, user, region, command_line):
     try:
-        ec2_helper = EC2Helper(region=region)  # Set your region
-        server_status_dict = ec2_helper.create_instance(
-            "<provide-valid-ami-id>",  # Replace with a valid AMI ID
-            "<instance-type>",  # Replace with a valid instance type
-            "<ssh-login-key-pair-name>",  # Replace with your key name
-            "<security-group-id>",  # Replace with your security group ID
-            "<subnet-id>",  # Replace with your subnet ID
+        # Parse the command parameters
+        command_params = get_dict_of_command_parameters(command_line)
+
+        os_name = command_params.get("os_name")
+        instance_type = command_params.get("instance_type")
+        key_pair = command_params.get("key_pair")
+
+        # Log the parsed parameters for debugging purposes
+        logger.info(
+            f"Parsed Parameters: os_name={os_name}, instance_type={instance_type}, key_pair={key_pair}"
         )
-        if server_status_dict:
+
+        # Check for missing parameters and inform the user which ones are missing
+        if not all([os_name, instance_type, key_pair]):
+            missing_params = []
+            if not os_name:
+                missing_params.append("os_name")
+            if not instance_type:
+                missing_params.append("instance_type")
+            if not key_pair:
+                missing_params.append("key_pair")
+
+            say(
+                f":warning: Missing required parameters: {', '.join(missing_params)}. Usage: create-aws-vm --os_name=<os> --instance_type=<type> --key_pair=<key>"
+            )
+            return
+
+        # Ensure os_name is either 'Linux' or 'linux'
+        if os_name.strip().lower() == "linux":
+            logger.info(f"Operating System selected: {os_name}")
+
+            # Use the hardcoded AMI ID for Amazon Linux
+            ami_id = (
+                "ami-0402e56c0a7afb78f"  # Replace with actual AMI ID for your region
+            )
+            logger.info(f"Using AMI ID: {ami_id}")
+            say(
+                ":hourglass_flowing_sand: Now processing your request for a Linux Instance... Please wait."
+            )
+
+            # Create EC2 instance using the helper
+            ec2_helper = EC2Helper(region=region)
+            server_status_dict = ec2_helper.create_instance(
+                ami_id,  # AMI ID for Amazon Linux
+                instance_type,  # Instance type (e.g., t2.micro)
+                key_pair,  # Key pair (e.g., your_key_pair_name)
+            )
+
+            # Log the server creation response for debugging
+            logger.debug(f"Server creation response: {server_status_dict}")
+
+            # Handle known error if server creation fails
+            if "error" in server_status_dict:
+                error_msg = server_status_dict["error"]
+                logger.error(f"EC2 instance creation failed: {error_msg}")
+                say(":x: *EC2 instance creation failed.*")
+                return
+
+            # Check for successful instance creation and provide details
             servers_created = server_status_dict.get("instances", [])
-            if len(servers_created) == 1:
+            if servers_created:
+                instance = servers_created[0]
+
+                instance_dict = {
+                    "instances": [
+                        {
+                            "name": instance.get("name", "unknown"),
+                            "instance_id": instance.get("instance_id", "unknown"),
+                            "key_name": instance.get("key_name", "unknown"),
+                            "instance_type": instance.get("instance_type", "unknown"),
+                            "public_ip": instance.get("public_ip", "unknown"),
+                        }
+                    ]
+                }
+
+                # Define the keys to display in the table
+                print_keys = [
+                    "name",
+                    "instance_id",
+                    "key_name",
+                    "instance_type",
+                    "public_ip",
+                ]
+
+                say(":white_check_mark: *Successfully created EC2 instance!*\n\n")
+
+                # Use the helper function to display the instance details as a table
+                helper_display_dict_output_as_table(instance_dict, print_keys, say)
+
                 say(
-                    f"Successfully created EC2 instance: {servers_created[0].get('name', 'unknown')}"
+                    "\n\n"
+                    ":key: *Access Instructions (Linux/Unix):*\n"
+                    "Use the following command to SSH into your instance:\n"
+                    "`ssh -i <path_to_your_private_key.pem> ec2-user@<Public_IP>`\n"
+                    "Make sure your key file has the correct permissions: `chmod 400 <path_to_your_private_key.pem>`\n"
+                    "\n\n"
+                    ":warning: *Key Pair Access:*\n"
+                    "To access this instance via SSH, you should have the `ocp-sust-slackbot-keypair` private key.\n"
+                    "If you don't have it, please contact the admin for access."
                 )
+            else:
+                say(":x: *EC2 instance creation failed.* No instance returned.")
+                logger.error("EC2 creation failed: No instance returned in response.")
         else:
-            say("Unable to create EC2 instance")
+            say(f":x: Unsupported OS name: `{os_name}`. Only `Linux` is supported.")
+            return
+
     except Exception as e:
-        logger.error(f"An error occurred creating the EC2 instance: {e}")
-        say("An internal error occurred, please contact administrator.")
+        # Log the error and provide a user-friendly message
+        logger.error(
+            f"An error occurred while creating the EC2 instance. Command line: {command_line}"
+        )
+        logger.error(f"Error Details: {e}")
+        logger.error(traceback.format_exc())
+        say(
+            ":x: An internal error occurred while creating the EC2 instance. Please contact the administrator."
+        )
 
 
 def helper_create_table(data_rows, table_column_names, max_column_widths):
