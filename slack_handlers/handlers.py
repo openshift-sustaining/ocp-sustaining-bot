@@ -104,7 +104,7 @@ def handle_create_aws_vm(say, user, region):
         say("An internal error occurred, please contact administrator.")
 
 
-def create_table(data_rows, table_column_names, max_column_widths):
+def helper_create_table(data_rows, table_column_names, max_column_widths):
     """
     Given
      1. data_rows - a list of row data to display
@@ -138,7 +138,7 @@ def create_table(data_rows, table_column_names, max_column_widths):
     return f"```\n{table}\n```"
 
 
-def setup_slack_header_line(header_text, emoji_name="ledger"):
+def helper_setup_slack_header_line(header_text, emoji_name="ledger"):
     """
     sets up a slack block consisting of an emoji and bold text. This is typically used for a header line
     """
@@ -170,7 +170,9 @@ def helper_display_dict_output_as_table(instances_dict, data_key_names, say):
     if instances_dict and isinstance(instances_dict, dict) and len(instances_dict) > 0:
         say(
             text=".",
-            blocks=setup_slack_header_line(" Here are the requested VM instances:"),
+            blocks=helper_setup_slack_header_line(
+                " Here are the requested VM instances:"
+            ),
         )
         max_column_widths = {}
         rows = []
@@ -191,7 +193,7 @@ def helper_display_dict_output_as_table(instances_dict, data_key_names, say):
                     max_column_widths[data_key_name] = len(column_value)
                 row.append(column_value)
             rows.append(row)
-        say(create_table(rows, data_key_names, max_column_widths))
+        say(helper_create_table(rows, data_key_names, max_column_widths))
 
 
 # Helper function to list AWS EC2 instances
