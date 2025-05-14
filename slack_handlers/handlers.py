@@ -162,7 +162,7 @@ def helper_setup_slack_header_line(header_text, emoji_name="ledger"):
     ]
 
 
-def helper_display_dict_output_as_table(instances_dict, data_key_names, say):
+def helper_display_dict_output_as_table(instances_dict, print_keys, say):
     """
     given a dictionary containing instance information for servers, set up a header line and then display the data in
     a "table"
@@ -181,19 +181,19 @@ def helper_display_dict_output_as_table(instances_dict, data_key_names, say):
         # storing it in a dictionary
 
         # initially set the max length for each column to the column header name
-        for data_key_name in data_key_names:
+        for data_key_name in print_keys:
             max_column_widths[data_key_name] = len(data_key_name)
 
         for instance_info in instances_dict.get("instances", []):
             row = []
-            for data_key_name in data_key_names:
+            for data_key_name in print_keys:
                 column_value = instance_info.get(data_key_name, "unknown")
                 current_max_len = max_column_widths.get(data_key_name, 0)
                 if len(column_value) > current_max_len:
                     max_column_widths[data_key_name] = len(column_value)
                 row.append(column_value)
             rows.append(row)
-        say(helper_create_table(rows, data_key_names, max_column_widths))
+        say(helper_create_table(rows, print_keys, max_column_widths))
 
 
 # Helper function to list AWS EC2 instances
@@ -212,7 +212,7 @@ def handle_list_aws_vms(say, region, user, command_line):
             )
             say(msg)
         else:
-            data_key_names = [
+            print_keys = [
                 "instance_id",
                 "name",
                 "instance_type",
@@ -220,7 +220,7 @@ def handle_list_aws_vms(say, region, user, command_line):
                 "public_ip",
                 "private_ip",
             ]
-            helper_display_dict_output_as_table(instances_dict, data_key_names, say)
+            helper_display_dict_output_as_table(instances_dict, print_keys, say)
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
