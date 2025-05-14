@@ -162,7 +162,7 @@ def setup_slack_header_line(header_text, emoji_name="ledger"):
     ]
 
 
-def helper_display_dict_output_as_table(instances_dict, say):
+def helper_display_dict_output_as_table(instances_dict, data_key_names, say):
     """
     given a dictionary containing instance information for servers, set up a header line and then display the data in
     a "table"
@@ -172,14 +172,6 @@ def helper_display_dict_output_as_table(instances_dict, say):
             text=".",
             blocks=setup_slack_header_line(" Here are the requested VM instances:"),
         )
-        data_key_names = [
-            "instance_id",
-            "name",
-            "instance_type",
-            "state",
-            "public_ip",
-            "private_ip",
-        ]
         max_column_widths = {}
         rows = []
 
@@ -218,7 +210,15 @@ def handle_list_aws_vms(say, region, user, command_line):
             )
             say(msg)
         else:
-            helper_display_dict_output_as_table(instances_dict, say)
+            data_key_names = [
+                "instance_id",
+                "name",
+                "instance_type",
+                "state",
+                "public_ip",
+                "private_ip",
+            ]
+            helper_display_dict_output_as_table(instances_dict, data_key_names, say)
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
