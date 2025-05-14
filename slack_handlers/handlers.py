@@ -2,7 +2,6 @@ from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
 from sdk.tools.helpers import get_dict_of_command_parameters
 import logging
-import pandas as pd
 
 
 logger = logging.getLogger(__name__)
@@ -105,32 +104,38 @@ def handle_create_aws_vm(say, user, region):
         say("An internal error occurred, please contact administrator.")
 
 
-def format_aligned_table(df):
+def create_table(data_rows, table_column_names, max_column_widths):
     """
-    Given a pandas dataframe df with column names and data, create a format aligned table of data with spaces as padding
-    and using a monospaced font (inside triple backticks)
+    Given
+     1. data_rows - a list of row data to display
+     2. column_names - the column names in the table to display
+     3. max_column_widths - a dictionary with the max column width for each column of values
+    Create a table of data with spaces as padding and using a monospaced font (inside triple backticks)
     """
-    if df and isinstance(df, pd.DataFrame) and not df.empty:
-        # Convert all columns to string and determine max width per column
-        col_widths = {
-            col: max(df[col].astype(str).map(len).max(), len(col)) for col in df.columns
-        }
 
-        # Format header
-        header = " | ".join(f"{col:<{col_widths[col]}}" for col in df.columns)
-        divider = "-+-".join("-" * col_widths[col] for col in df.columns)
+    # Format table header (first row) and the divider (2nd row)
+    header = " | ".join(
+        f"{column_name:<{max_column_widths[column_name]}}"
+        for column_name in table_column_names
+    )
+    divider = "-+-".join(
+        "-" * max_column_widths[column_name] for column_name in table_column_names
+    )
 
-        # Format rows
-        rows = []
-        for _, row in df.iterrows():
-            # left-align the text with a width of col_widths[col] spaces
-            row_str = " | ".join(
-                f"{str(val):<{col_widths[col]}}" for col, val in row.items()
+    # Format the data rows, left aligning with spaces
+    rows = []
+
+    for row in data_rows:
+        row_values = []
+        for index, val in enumerate(row):
+            # left-align the text with spaces
+            row_values.append(
+                f"{str(val):<{max_column_widths[table_column_names[index]]}}"
             )
-            rows.append(row_str)
-        table = "\n".join([header, divider] + rows)
-        return f"```\n{table}\n```"
-    return ""
+        rows.append(" | ".join(row_values))
+
+    table = "\n".join([header, divider] + rows)
+    return f"```\n{table}\n```"
 
 
 def setup_slack_header_line(header_text, emoji_name="ledger"):
@@ -157,39 +162,9 @@ def setup_slack_header_line(header_text, emoji_name="ledger"):
     ]
 
 
-def setup_slack_list_vms(instances_dict):
+def helper_display_dict_output_as_table(instances_dict, say):
     """
-    Given instances_dict which is a dictionary with information on server instances, transfer the data to a Pandas
-    dataframe and then call format_aligned_table to generate a table containing this data
-    """
-    if instances_dict and isinstance(instances_dict, dict):
-        vms_df = pd.DataFrame(
-            columns=[
-                "Instance Id",
-                "Name",
-                "Flavor",
-                "State",
-                "Public IP",
-                "Private IP",
-            ]
-        )
-        for instance_info in instances_dict.get("instances", []):
-            row = [
-                instance_info.get("instance_id", "unknown"),
-                instance_info.get("name", "unknown"),
-                instance_info.get("instance_type", "unknown"),
-                instance_info.get("state", "unknown"),
-                instance_info.get("public_ip", "unknown"),
-                instance_info.get("private_ip", "unknown"),
-            ]
-            vms_df.loc[len(vms_df)] = row
-        return format_aligned_table(vms_df)
-    return ""
-
-
-def display_list_vms_in_slack(instances_dict, say):
-    """
-    given a dictionary containing instance information for servers, setup a header line and then display the data in
+    given a dictionary containing instance information for servers, set up a header line and then display the data in
     a "table"
     """
     if instances_dict and isinstance(instances_dict, dict) and len(instances_dict) > 0:
@@ -197,7 +172,34 @@ def display_list_vms_in_slack(instances_dict, say):
             text=".",
             blocks=setup_slack_header_line(" Here are the requested VM instances:"),
         )
-        say(setup_slack_list_vms(instances_dict))
+        data_key_names = [
+            "instance_id",
+            "name",
+            "instance_type",
+            "state",
+            "public_ip",
+            "private_ip",
+        ]
+        max_column_widths = {}
+        rows = []
+
+        # for each column of data (including the column header name), calculate the max width of each columns data
+        # storing it in a dictionary
+
+        # initially set the max length for each column to the column header name
+        for data_key_name in data_key_names:
+            max_column_widths[data_key_name] = len(data_key_name)
+
+        for instance_info in instances_dict.get("instances", []):
+            row = []
+            for data_key_name in data_key_names:
+                column_value = instance_info.get(data_key_name, "unknown")
+                current_max_len = max_column_widths.get(data_key_name, 0)
+                if len(column_value) > current_max_len:
+                    max_column_widths[data_key_name] = len(column_value)
+                row.append(column_value)
+            rows.append(row)
+        say(create_table(rows, data_key_names, max_column_widths))
 
 
 # Helper function to list AWS EC2 instances
@@ -216,7 +218,7 @@ def handle_list_aws_vms(say, region, user, command_line):
             )
             say(msg)
         else:
-            display_list_vms_in_slack(instances_dict, say)
+            helper_display_dict_output_as_table(instances_dict, say)
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
