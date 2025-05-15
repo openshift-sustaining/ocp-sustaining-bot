@@ -79,6 +79,7 @@ class EC2Helper:
                         "key_name": instance.get("KeyName", ""),
                         "vpc_id": instance.get("VpcId", ""),
                         "public_ip": instance.get("PublicIpAddress", "N/A"),
+                        "private_ip": instance.get("PrivateIpAddress", "N/A"),
                         "state": instance_state_name,
                     }
                     instances_info.append(instance_info)

@@ -3,6 +3,7 @@ from sdk.openstack.core import OpenStackHelper
 from sdk.tools.helpers import get_dict_of_command_parameters
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -103,6 +104,98 @@ def handle_create_aws_vm(say, user, region):
         say("An internal error occurred, please contact administrator.")
 
 
+def helper_create_table(data_rows, table_column_names, max_column_widths):
+    """
+    Given
+     1. data_rows - a list of row data to display
+     2. column_names - the column names in the table to display
+     3. max_column_widths - a dictionary with the max column width for each column of values
+    Create a table of data with spaces as padding and using a monospaced font (inside triple backticks)
+    """
+
+    # Format table header (first row) and the divider (2nd row)
+    header = " | ".join(
+        f"{column_name:<{max_column_widths[column_name]}}"
+        for column_name in table_column_names
+    )
+    divider = "-+-".join(
+        "-" * max_column_widths[column_name] for column_name in table_column_names
+    )
+
+    # Format the data rows, left aligning with spaces
+    rows = []
+
+    for row in data_rows:
+        row_values = []
+        for index, val in enumerate(row):
+            # left-align the text with spaces
+            row_values.append(
+                f"{str(val):<{max_column_widths[table_column_names[index]]}}"
+            )
+        rows.append(" | ".join(row_values))
+
+    table = "\n".join([header, divider] + rows)
+    return f"```\n{table}\n```"
+
+
+def helper_setup_slack_header_line(header_text, emoji_name="ledger"):
+    """
+    sets up a slack block consisting of an emoji and bold text. This is typically used for a header line
+    """
+    return [
+        {
+            "type": "rich_text",
+            "elements": [
+                {
+                    "type": "rich_text_section",
+                    "elements": [
+                        {"type": "emoji", "name": f"{emoji_name}"},
+                        {
+                            "type": "text",
+                            "text": f"{header_text}",
+                            "style": {"bold": True},
+                        },
+                    ],
+                }
+            ],
+        }
+    ]
+
+
+def helper_display_dict_output_as_table(instances_dict, print_keys, say):
+    """
+    given a dictionary containing instance information for servers, set up a header line and then display the data in
+    a "table"
+    """
+    if instances_dict and isinstance(instances_dict, dict) and len(instances_dict) > 0:
+        say(
+            text=".",
+            blocks=helper_setup_slack_header_line(
+                " Here are the requested VM instances:"
+            ),
+        )
+        max_column_widths = {}
+        rows = []
+
+        # for each column of data (including the column header name), calculate the max width of each columns data
+        # storing it in a dictionary
+
+        # initially set the max length for each column to the column header name
+        for data_key_name in print_keys:
+            max_column_widths[data_key_name] = len(data_key_name)
+
+        for instance_info in instances_dict.get("instances", []):
+            row = []
+            for data_key_name in print_keys:
+                column_value = instance_info.get(data_key_name, "unknown")
+                current_max_len = max_column_widths.get(data_key_name, 0)
+                if len(column_value) > current_max_len:
+                    max_column_widths[data_key_name] = len(column_value)
+                row.append(column_value)
+            rows.append(row)
+        say(helper_create_table(rows, print_keys, max_column_widths))
+
+
 # Helper function to list AWS EC2 instances
 def handle_list_aws_vms(say, region, user, command_line):
     try:
@@ -119,9 +212,15 @@ def handle_list_aws_vms(say, region, user, command_line):
             )
             say(msg)
         else:
-            for instance_info in instances_dict.get("instances", []):
-                # TODO - format each dictionary element
-                say(f"\n*** AWS EC2 VM Details ***\n{str(instance_info)}\n")
+            print_keys = [
+                "instance_id",
+                "name",
+                "instance_type",
+                "state",
+                "public_ip",
+                "private_ip",
+            ]
+            helper_display_dict_output_as_table(instances_dict, print_keys, say)
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
