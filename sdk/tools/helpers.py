@@ -1,26 +1,49 @@
-def get_dict_of_command_parameters(command_line: str):
+import shlex
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def get_dict_of_command_parameters(command_line: str) -> dict:
     """
-    Given
-    1. command_line - the command line e.g. list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped
-    2. remove the main command parameter specified in the command line
-    4. parse the remaining text and return a dictionary of parameters and a list of associated values if present else {}
+    Given the command_line e.g. list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped
+    Parse the parameters and return a dictionary of parameters and a list of associated values if present else {}
        For example, {'state': 'pending,stopped', 'type': 't3.micro,t2.micro'}
     """
-    command_params_dict = {}
-    if command_line and isinstance(command_line, str):
-        sub_params = command_line.split(" ")
-        # remove any empty strings which will be there if there were > 1 spaces between parameters
-        valid_cmd_strings = [sub_param for sub_param in sub_params if sub_param != ""]
-        # skip over the 1st value as this will be the main command e.g. list-aws-vms
-        if len(valid_cmd_strings) > 1:
-            valid_cmd_strings = valid_cmd_strings[1:]
-            command_params_dict = dict(
-                (k.replace("--", ""), v)
-                for k, v in (
-                    pair.split("=") for pair in valid_cmd_strings if "=" in pair
-                )
-            )
-    return command_params_dict
+    if not isinstance(command_line, str):
+        return {}
+
+    command_line = command_line.strip()
+    if not command_line:
+        return {}
+
+    try:
+        args = shlex.split(command_line)
+        parsed_params = {}
+
+        i = 0
+        while i < len(args):
+            token = args[i]
+            if token.startswith("--"):
+                # remove the leading -- to extract the key name
+                key = token[2:]
+                value = None
+                if "=" in key:
+                    # handles the case where the key and value are separated by an equals sign.
+                    key, value = key.split("=", 1)
+                elif i + 1 < len(args) and not args[i + 1].startswith("--"):
+                    # handles the case where the key and value are separated by a space
+                    value = args[i + 1]
+                    i += 1  # Skip next token since it's a value
+                key = key.strip()
+                if len(key) > 0 and value not in (None, ""):
+                    parsed_params[key] = (
+                        value.strip() if isinstance(value, str) else str(value).strip()
+                    )
+            i += 1
+    except Exception as e:
+        logger.error(f"Error parsing command line: {e}")
+    return parsed_params
 
 
 def get_values_for_key_from_dict_of_parameters(key_name: str, dict_of_parameters: dict):
