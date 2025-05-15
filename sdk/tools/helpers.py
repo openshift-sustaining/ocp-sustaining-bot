@@ -16,7 +16,9 @@ def get_dict_of_command_parameters(command_line: str):
             valid_cmd_strings = valid_cmd_strings[1:]
             command_params_dict = dict(
                 (k.replace("--", ""), v)
-                for k, v in (pair.split("=") for pair in valid_cmd_strings)
+                for k, v in (
+                    pair.split("=") for pair in valid_cmd_strings if "=" in pair
+                )
             )
     return command_params_dict
 
