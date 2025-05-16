@@ -71,5 +71,7 @@ def get_values_for_key_from_dict_of_parameters(key_name: str, dict_of_parameters
     ):
         values = dict_of_parameters.get(key_name, None)
         if values and isinstance(values, str):
-            list_of_values = [value.strip() for value in values.split(",")]
+            list_of_values = [
+                value.strip() for value in values.split(",") if value not in (",", "")
+            ]
     return list_of_values

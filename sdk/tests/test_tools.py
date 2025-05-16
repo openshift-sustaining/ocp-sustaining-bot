@@ -111,3 +111,15 @@ def test_get_values_for_key_from_dict_of_parameters_when_absent_in_dict_params()
     param_dict = {"state": "pending,stopped", "type": "t2.micro,t3.micro"}
     result = get_values_for_key_from_dict_of_parameters("missing_key", param_dict)
     assert len(result) == 0
+
+
+def test_get_values_for_key_from_dict_of_parameters_when_spaces_in_dict_params():
+    param_dict = {"state": "pending, stopped,  running", "type": "t2.micro,t3.micro"}
+    result = get_values_for_key_from_dict_of_parameters("state", param_dict)
+    assert result == ["pending", "stopped", "running"]
+
+
+def test_get_values_for_key_from_dict_of_parameters_when_spaces_in_dict_params():
+    param_dict = {"state": "pending, stopped,  running,", "type": "t2.micro,t3.micro"}
+    result = get_values_for_key_from_dict_of_parameters("state", param_dict)
+    assert result == ["pending", "stopped", "running"]
