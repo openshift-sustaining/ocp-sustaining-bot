@@ -18,6 +18,14 @@ def get_dict_of_command_parameters(command_line: str) -> dict:
         return {}
 
     try:
+        # if a value contains a comma separated list, remove any trailing commas and remove whitespace between values
+        stripped_args = [
+            arg.strip()
+            for arg in command_line.split(",")
+            if arg.strip() not in (",", "")
+        ]
+        command_line = ",".join(stripped_args)
+
         args = shlex.split(command_line)
         parsed_params = {}
 
