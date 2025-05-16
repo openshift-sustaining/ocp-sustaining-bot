@@ -1,23 +1,40 @@
 def get_dict_of_command_parameters(command_line: str):
     """
-    Given
-    1. command_line - the command line e.g. list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped
-    2. remove the main command parameter specified in the command line
-    4. parse the remaining text and return a dictionary of parameters and a list of associated values if present else {}
-       For example, {'state': 'pending,stopped', 'type': 't3.micro,t2.micro'}
+    Given a command line (e.g., list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped),
+    remove the main command parameter, parse the remaining parameters,
+    and return a dictionary with parameter names as keys and their associated values.
     """
     command_params_dict = {}
+
     if command_line and isinstance(command_line, str):
         sub_params = command_line.split(" ")
-        # remove any empty strings which will be there if there were > 1 spaces between parameters
-        valid_cmd_strings = [sub_param for sub_param in sub_params if sub_param != ""]
-        # skip over the 1st value as this will be the main command e.g. list-aws-vms
+
+        # Remove any empty strings caused by multiple spaces
+        valid_cmd_strings = [
+            sub_param.strip() for sub_param in sub_params if sub_param.strip()
+        ]
+
+        # Skip the first value, which is the main command (e.g., 'list-aws-vms')
         if len(valid_cmd_strings) > 1:
             valid_cmd_strings = valid_cmd_strings[1:]
-            command_params_dict = dict(
-                (k.replace("--", ""), v)
-                for k, v in (pair.split("=") for pair in valid_cmd_strings)
-            )
+
+            for param in valid_cmd_strings:
+                # Split at the first '=' to handle each parameter correctly
+                if "=" in param:
+                    key, value = param.split("=", 1)
+                    key = key.lstrip("--")  # Remove leading '--'
+
+                    # If the value contains commas, split it into a list (for multiple values)
+                    command_params_dict[key] = (
+                        value.split(",") if "," in value else value
+                    )
+
+                else:
+                    # Handle the case where '=' is missing (invalid format)
+                    logger.warning(
+                        f"Skipping invalid parameter (missing '=' in: {param})"
+                    )
+
     return command_params_dict
 
 
