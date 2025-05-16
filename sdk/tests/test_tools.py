@@ -1,4 +1,7 @@
-from sdk.tools.helpers import get_dict_of_command_parameters
+from sdk.tools.helpers import (
+    get_dict_of_command_parameters,
+    get_values_for_key_from_dict_of_parameters,
+)
 
 
 def test_get_dict_of_command_parameters_when_no_params():
@@ -89,3 +92,22 @@ def test_get_dict_when_trailing_commas_between_params():
         "create-aws-vm --state=pending,,, stopped,,,, "
     )
     assert "pending,stopped" == params_dict.get("state")
+
+
+def test_get_values_for_key_from_dict_of_parameters_when_empty_dict():
+    result = get_values_for_key_from_dict_of_parameters(
+        "absent_key", {"some_key": "some_value"}
+    )
+    assert len(result) == 0
+
+
+def test_get_values_for_key_from_dict_of_parameters_when_present_in_dict_params():
+    param_dict = {"state": "pending,stopped", "type": "t2.micro,t3.micro"}
+    result = get_values_for_key_from_dict_of_parameters("type", param_dict)
+    assert result == ["t2.micro", "t3.micro"]
+
+
+def test_get_values_for_key_from_dict_of_parameters_when_absent_in_dict_params():
+    param_dict = {"state": "pending,stopped", "type": "t2.micro,t3.micro"}
+    result = get_values_for_key_from_dict_of_parameters("missing_key", param_dict)
+    assert len(result) == 0
