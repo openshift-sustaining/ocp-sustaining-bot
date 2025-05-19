@@ -1,8 +1,8 @@
-boto3
-openshift
-openstacksdk
-requests
-python-dotenv
-slack-bolt
-aiohttp
-pytest
+boto3==1.38.18
+openshift==0.13.2
+openstacksdk==4.5.0
+requests==2.32.3
+python-dotenv==1.1.0
+slack_bolt==1.23.0
+aiohttp==3.11.18
+pytest==8.3.5
