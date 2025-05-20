@@ -69,9 +69,19 @@ def handle_list_openstack_vms(say, command_line=""):
                 f":no_entry_sign: There are currently no VMs in the *{status_filter}* state in OpenStack."
             )
             return
-
-        say(f"*OpenStack {status_filter} VMs:*")
-        say(f"```{servers}```")
+        else:
+            # Define the keys to display in the table output
+            print_keys = [
+                "server_id",
+                "name",
+                "flavor",
+                "network",
+                "public_ip",
+                "key_name",
+                "status",
+            ]
+            # Display the data as a Slack table
+            helper_display_dict_output_as_table(servers, print_keys, say)
 
     except Exception as e:
         # Log the error for debugging purposes
@@ -81,6 +91,7 @@ def handle_list_openstack_vms(say, command_line=""):
 
 # Helper function to handle greeting
 def handle_hello(say, user):
+    logger.info(f"Saying hello back to user {user}")
     say(f"Hello <@{user}>! How can I assist you today?")
 
 
@@ -288,7 +299,8 @@ def helper_display_dict_output_as_table(instances_dict, print_keys, say):
         for instance_info in instances_dict.get("instances", []):
             row = []
             for data_key_name in print_keys:
-                column_value = instance_info.get(data_key_name, "unknown")
+                column_value_raw = instance_info.get(data_key_name, "unknown")
+                column_value = str(column_value_raw)
                 current_max_len = max_column_widths.get(data_key_name, 0)
                 if len(column_value) > current_max_len:
                     max_column_widths[data_key_name] = len(column_value)
