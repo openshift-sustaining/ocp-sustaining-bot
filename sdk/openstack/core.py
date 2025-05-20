@@ -46,19 +46,17 @@ class OpenStackHelper:
             for server in self.conn.compute.servers(status=status_filter):
                 # Initialize IP-related fields
                 networks = server.addresses or {}
-                ip_addr, ip_version, net_name = None, None, None
+                ip_addr, net_name = None, None
 
                 # Prioritize floating IP, fallback to fixed if not available
                 for net, ips in networks.items():
                     for ip_info in ips:
                         if ip_info.get("OS-EXT-IPS:type") == "floating":
                             ip_addr = ip_info.get("addr")
-                            ip_version = ip_info.get("version")
                             net_name = net
                             break
                         elif not ip_addr and ip_info.get("OS-EXT-IPS:type") == "fixed":
                             ip_addr = ip_info.get("addr")
-                            ip_version = ip_info.get("version")
                             net_name = net
 
                 # Collect server details
