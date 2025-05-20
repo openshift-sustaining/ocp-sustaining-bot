@@ -68,9 +68,7 @@ class OpenStackHelper:
                         "server_id": server.id,
                         "flavor": server.flavor.get("original_name")
                         or server.flavor.get("id"),
-                        "availability_zone": server.availability_zone,
                         "network": net_name,
-                        "ip_version": ip_version,
                         "public_ip": ip_addr,
                         "key_name": getattr(server, "key_name", "N/A"),
                         "status": server.status,
