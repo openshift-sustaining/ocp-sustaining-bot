@@ -26,40 +26,37 @@ def mention_handler(body, say):
     command_line = body.get("event", {}).get("text", "").strip()
     region = config.AWS_DEFAULT_REGION
 
-    cmd_strings = command_line.split(" ")
+    cmd_strings = [x for x in command_line.split(" ") if x.strip() != ""]
     if len(cmd_strings) > 0:
-        first_command = cmd_strings[0]
-        if first_command[:2] == "<@":
-            # remove the @ocp-sustaining-bot part from the text - it will have a value like '<@U08JUNY7PD4>'
-            cmd_strings.pop(0)
-        # remove any empty strings which will be there if there were > 1 spaces between parameters
-        valid_cmd_strings = [
-            sub_string for sub_string in cmd_strings if sub_string != ""
-        ]
-        command_line = " ".join(valid_cmd_strings)
-        # Create a command mapping
+        if cmd_strings[0][:2] == "<@":
+            # Can't filter based on `app.event` since mentioning bot in DM
+            # is classified as `message` not as `app_mention`, so we remove
+            # the `@ocp-sustaining-bot` part
+            cmd = cmd_strings[1].lower()
+            command_line = " ".join(cmd_strings[1:])
+        else:
+            cmd = cmd_strings[0]
+            command_line = " ".join(cmd_strings)
+
         commands = {
-            r"\bhelp\b": lambda: handle_help(say, user),
-            r"^create-openstack-vm": lambda: handle_create_openstack_vm(
+            "help": lambda: handle_help(say, user),
+            "create-openstack-vm": lambda: handle_create_openstack_vm(
                 say, user, command_line
             ),
-            r"^list-openstack-vms(\s+\S+)?": lambda: handle_list_openstack_vms(
-                say, command_line
-            ),
-            r"\bhello\b": lambda: handle_hello(say, user),
-            r"\bcreate-aws-vm\b": lambda: handle_create_aws_vm(
+            "list-openstack-vms": lambda: handle_list_openstack_vms(say, command_line),
+            "hello": lambda: handle_hello(say, user),
+            "create-aws-vm": lambda: handle_create_aws_vm(
                 say, user, region, command_line
             ),
-            r"\blist-aws-vms\b": lambda: handle_list_aws_vms(
-                say, region, user, command_line
-            ),
+            "list-aws-vm": lambda: handle_list_aws_vms(say, region, user, command_line),
         }
 
-        # Check for command matches and execute the appropriate handler
-        for pattern, handler in commands.items():
-            if re.search(pattern, command_line, re.IGNORECASE):
-                handler()  # Execute the handler
-                return
+        try:
+            commands[cmd]()
+            return
+        except KeyError:
+            # Invalid command, will revert to error message
+            pass
 
     # If no match is found, provide a default message
     say(
