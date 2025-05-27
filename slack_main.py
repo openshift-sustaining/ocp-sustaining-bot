@@ -1,7 +1,6 @@
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
-import re
 import logging
 
 from slack_handlers.handlers import (
