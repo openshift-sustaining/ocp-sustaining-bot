@@ -15,10 +15,12 @@ def handle_help(say, user):
         )
         say(
             f"Hello <@{user}>! I'm here to help. You can use the following commands:\n"
+            "`hello`: Greet the bot.\n"
             "`create-openstack-vm <name> <image> <flavor> <network>`: Create an OpenStack VM.\n"
             "`create-aws-vm <os_name> <instance_type> <key_pair>`: Create an AWS EC2 Instance.\n"
-            "`list-aws-vms`\n"
-            "`hello`: Greet the bot."
+            "`list-team-links` : List all important team links.\n"
+            "`list-aws-vms` : List AWS VMs based on their status.\n"
+            "`list-openstack-vms` : List Openstack VMs based on their status.\n"
         )
     except Exception as e:
         logger.error(f"Error in handle_help: {e}")
@@ -81,7 +83,12 @@ def handle_list_openstack_vms(say, command_line=""):
                 "status",
             ]
             # Display the data as a Slack table
-            helper_display_dict_output_as_table(servers, print_keys, say)
+            helper_display_dict_output_as_table(
+                servers,
+                print_keys,
+                say,
+                block_message=" Here are the requested VM instances:",
+            )
 
     except Exception as e:
         # Log the error for debugging purposes
@@ -184,7 +191,12 @@ def handle_create_aws_vm(say, user, region, command_line):
                 say(":white_check_mark: *Successfully created EC2 instance!*\n\n")
 
                 # Use the helper function to display the instance details as a table
-                helper_display_dict_output_as_table(instance_dict, print_keys, say)
+                helper_display_dict_output_as_table(
+                    instance_dict,
+                    print_keys,
+                    say,
+                    block_message=" Here are the requested VM instances:",
+                )
 
                 say(
                     "\n\n"
@@ -274,7 +286,7 @@ def helper_setup_slack_header_line(header_text, emoji_name="ledger"):
     ]
 
 
-def helper_display_dict_output_as_table(instances_dict, print_keys, say):
+def helper_display_dict_output_as_table(instances_dict, print_keys, say, block_message):
     """
     given a dictionary containing instance information for servers, set up a header line and then display the data in
     a "table"
@@ -282,9 +294,7 @@ def helper_display_dict_output_as_table(instances_dict, print_keys, say):
     if instances_dict and isinstance(instances_dict, dict) and len(instances_dict) > 0:
         say(
             text=".",
-            blocks=helper_setup_slack_header_line(
-                " Here are the requested VM instances:"
-            ),
+            blocks=helper_setup_slack_header_line(block_message),
         )
         max_column_widths = {}
         rows = []
@@ -333,7 +343,63 @@ def handle_list_aws_vms(say, region, user, command_line):
                 "public_ip",
                 "private_ip",
             ]
-            helper_display_dict_output_as_table(instances_dict, print_keys, say)
+            helper_display_dict_output_as_table(
+                instances_dict,
+                print_keys,
+                say,
+                block_message=" Here are the requested VM instances:",
+            )
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
+
+
+# Helper function to list important team links
+def handle_list_team_links(say, user):
+    say(
+        text=".",
+        blocks=helper_setup_slack_header_line(" Here are the important team links:"),
+    )
+
+    important_links = [
+        ("Release Controller Page", "https://amd64.ocp.releases.ci.openshift.org/"),
+        (
+            "OCP Sustaining Confluence Space",
+            "https://spaces.redhat.com/display/SustainingEngineering/OpenShift+Sustaining+Engineering",
+        ),
+        (
+            "SE Operational Jira Dashboard",
+            "https://issues.redhat.com/secure/Dashboard.jspa",
+        ),
+        (
+            "OpenStack Login Page",
+            "https://cloud.psi.redhat.com/dashboard/project/instances/",
+        ),
+        (
+            "OCP SE Attendance Sheet",
+            "https://docs.google.com/spreadsheets/d/108tMw1JqGE7dqOmToo7G2MfvLMtfOxdkX5OXNW0OBt4/edit?gid=585683499#gid=585683499",
+        ),
+        (
+            "OCP Teams Tracker Sheet",
+            "https://docs.google.com/spreadsheets/d/1I0wzqmkBxSmoRtSCEBUe4nXHvPLQ3K959t8VWnOhurA/edit?gid=1529539181#gid=1529539181",
+        ),
+    ]
+
+    link_lines = "\n".join(
+        [
+            f":small_orange_diamond: *{title}:* <{url}|Link>"
+            for title, url in important_links
+        ]
+    )
+
+    say(
+        blocks=[
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": link_lines,
+                },
+            },
+        ],
+    )
