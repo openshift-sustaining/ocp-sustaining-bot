@@ -47,7 +47,9 @@ def mention_handler(body, say):
             "create-aws-vm": lambda: handle_create_aws_vm(
                 say, user, region, command_line
             ),
-            "list-aws-vms": lambda: handle_list_aws_vms(say, region, user, command_line),
+            "list-aws-vms": lambda: handle_list_aws_vms(
+                say, region, user, command_line
+            ),
         }
 
         try:
