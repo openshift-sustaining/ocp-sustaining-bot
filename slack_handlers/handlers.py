@@ -14,14 +14,17 @@ def handle_help(say, user):
             f"Help command invoked by user: {user}. Sending list of available commands."
         )
         say(
-            f"Hello <@{user}>! I'm here to help. You can use the following commands:\n"
-            "`hello`: Greet the bot.\n"
-            "`create-openstack-vm <name> <image> <flavor> <network>`: Create an OpenStack VM.\n"
-            "`create-aws-vm <os_name> <instance_type> <key_pair>`: Create an AWS EC2 Instance.\n"
-            "`list-team-links` : List all important team links.\n"
-            "`list-aws-vms` : List AWS VMs based on their status.\n"
-            "`list-openstack-vms` : List Openstack VMs based on their status.\n"
+            f"Hello <@{user}>! Here's what I can help you with:\n\n"
+            "*Available Commands:*\n"
+            "`hello` - Greet the bot.\n"
+            "`help` - Show this help message.\n"
+            "`list-team-links` - Display important team links.\n"
+            "`create-openstack-vm <name> <image> <flavor> <network>` - Create an OpenStack VM.\n"
+            "`list-openstack-vms [--status=active,shutoff]` : List OpenStack VMs optionally filtered by status.\n"
+            "`create-aws-vm <os_name> <instance_type> <key_pair>` - Create an AWS EC2 instance.\n"
+            "`list-aws-vms [--state=pending,running,stopped]` : List AWS VMs optionally filtered by state.\n"
         )
+
     except Exception as e:
         logger.error(f"Error in handle_help: {e}")
 

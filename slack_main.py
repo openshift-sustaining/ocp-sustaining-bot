@@ -46,7 +46,7 @@ def mention_handler(body, say):
 
     cmd_strings = [x for x in command_line.split(" ") if x.strip() != ""]
     if len(cmd_strings) > 0:
-        if cmd_strings[0][:2] == "<@":
+        if cmd_strings[0][:2] == "<@" and len(cmd_strings) > 1:
             # Can't filter based on `app.event` since mentioning bot in DM
             # is classified as `message` not as `app_mention`, so we remove
             # the `@ocp-sustaining-bot` part
