@@ -3,6 +3,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
 import logging
 import json
+import sys
 
 from slack_handlers.handlers import (
     handle_help,
@@ -18,7 +19,11 @@ logger = logging.getLogger(__name__)
 
 app = App(token=config.SLACK_BOT_TOKEN)
 
-ALLOWED_SLACK_USERS = json.loads(config.ALLOWED_SLACK_USERS)
+try:
+    ALLOWED_SLACK_USERS = json.loads(config.ALLOWED_SLACK_USERS)
+except json.JSONDecodeError:
+    logging.error("ALLOWED_SLACK_USERS must be a valid JSON string.")
+    sys.exit(1)
 
 
 def is_user_allowed(user_id: str) -> bool:
@@ -32,7 +37,9 @@ def mention_handler(body, say):
     user = body.get("event", {}).get("user")
     if config.ALLOW_ALL_WORKSPACE_USERS != "1":
         if not is_user_allowed(user):
-            say(f"Sorry <@{user}>, you're not authorized to use this bot.")
+            say(
+                f"Sorry <@{user}>, you're not authorized to use this bot.Contact ocp-sustaining-admin@redhat.com for assistance."
+            )
             return
     command_line = body.get("event", {}).get("text", "").strip()
     region = config.AWS_DEFAULT_REGION
