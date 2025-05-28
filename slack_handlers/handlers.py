@@ -21,8 +21,8 @@ def handle_help(say, user):
             "`list-team-links` - Display important team links.\n"
             "`create-openstack-vm <name> <image> <flavor> <network>` - Create an OpenStack VM.\n"
             "`list-openstack-vms [--status=active,shutoff]` : List OpenStack VMs optionally filtered by status.\n"
+            "`create-aws-vm <os_name> <instance_type> <key_pair>` - Create an AWS EC2 instance.\n"
             "`list-aws-vms [--state=pending,running,stopped]` : List AWS VMs optionally filtered by state.\n"
-            "`list-aws-vms [status]` - List AWS VMs (optional status filter).\n"
         )
 
     except Exception as e:
