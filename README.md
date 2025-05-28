@@ -128,18 +128,20 @@ I will have those tasks added under our sustaining jira project soon.
 
 ## Backend Deployment
 
-1. As of 285h may 2025 slack backed docker is build manually and pushed to registry `quay.io/ocp_sustaining_engineering/slack_backend` which is also open source.This will be automated via a build pipeline soon.
+1. As of 28th may 2025 slack backed docker is build manually and pushed to registry `quay.io/ocp_sustaining_engineering/slack_backend` which is also open source.This will be automated via a build pipeline soon.
 2. It runs as a docker container inside `project-tools` VM in our openstack cluster. 
    
-3. Troubleshooting tips :
+3. **Troubleshooting tips** :
    Get the key of that server from admin to login . Then use below or similar commands to explore.
 
-   Docker run command : 
+   **Docker run command** : 
+
     `docker run -d --name slack_backend --env-file /root/sec/.env --restart unless-stopped quay.io/ocp_sustaining_engineering/slack_backend:1.0.1`
 
-   To trace logs :
+   **To trace logs** :
+
    `docker logs -f slack_backend`
 
-   Increase the log:
-
+   **Increase the log**:
+   
    update root/sec/.env and set LOG_LEVEL=DEBUG . Then stop the container and restart it with above mentioned run command.
