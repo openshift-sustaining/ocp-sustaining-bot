@@ -134,6 +134,10 @@ I will have those tasks added under our sustaining jira project soon.
 3. **Troubleshooting tips** :
    Get the key of that server from admin to login . Then use below or similar commands to explore.
 
+   **Docker container commands** : 
+    To check if container is running or killed :
+     `docker ps -a`
+     
    **Docker run command** : 
 
     `docker run -d --name slack_backend --env-file /root/sec/.env --restart unless-stopped quay.io/ocp_sustaining_engineering/slack_backend:1.0.1`
