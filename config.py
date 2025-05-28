@@ -2,9 +2,6 @@ import logging
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from a .env file
-load_dotenv()
-
 
 class Config:
     """
@@ -14,6 +11,8 @@ class Config:
     """
 
     def __init__(self):
+        # Load environment variables from a .env file
+        load_dotenv()
         required_keys = [
             "SLACK_BOT_TOKEN",
             "SLACK_APP_TOKEN",
@@ -28,6 +27,8 @@ class Config:
             "OS_APP_CRED_ID",
             "OS_APP_CRED_SECRET",
             "OS_AUTH_TYPE",
+            "ALLOW_ALL_WORKSPACE_USERS",
+            "ALLOWED_SLACK_USERS",
         ]
         for key in required_keys:
             value = os.getenv(key)
