@@ -4,10 +4,13 @@ This is a Slack bot built to help users interact with AWS and OpenStack cloud re
 
 ## Features
 
-- **Create AWS OpenShift Clusters**: Easily create an OpenShift cluster in AWS using the `create-aws-cluster` command.
-- **Create OpenStack Virtual Machines**: Create a VM on OpenStack using the `create-openstack-vm` command.
+- **Infrastructure commands**: Handles the infrastructure create tasks with different cloud providers : AWS, AZURE, GCP etc.
+- **JIRA & other tool commands**: Handle JIRA commands and other jenkins/ci job trigger commands.
 - **Help Command**: The bot responds with a list of available commands when mentioned with the word `help`.
+- **Other commands**: Commands to display important team links, trigger a tool/job etc.
 - **Message Handling**: The bot can respond to messages and mentions, providing helpful information or performing actions based on user input.
+- **Common slack SDK python module** : we are building a common slack backend python module which is opensource and can be installable and reusable . Planning to push to pypi public python registry available to all.
+- **API interface using above module** : we are also building an api wrapper around the SDK . This can be deployed an independet app and provides same integrations that we are using in slackbot . This will be helpful to have same functionality with other apps such as google chat etc.
 
 ## Technologies
 
@@ -18,7 +21,7 @@ This is a Slack bot built to help users interact with AWS and OpenStack cloud re
 
 ## Requirements
 
-- Python 3.8 or higher
+- Python 3.12 
 - Slack App with `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`
 - AWS account with `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
 - OpenStack credentials (`OS_AUTH_URL`, `OS_PROJECT_NAME`, `OS_INTERFACE`, `OS_ID_API_VERSION`,`OS_REGION_NAME`,`OS_APP_CRED_ID`,`OS_APP_CRED_SECRET`,`OS_AUTH_TYPE`)
@@ -111,10 +114,10 @@ Feel free to fork the repository and submit pull requests. Contributions are wel
 6. Create a new Pull Request
 
 ## Testing
-1. There is a slack bot namely : ocp-sustaining-bot is already created and whose credentials will be shared with you along with other cloud credentials.
+1. There is a dev slack bot namely : ocp-sustaining-bot is already created . Please get those credentials along with other cloud credentials of the slack bot.
 2. There is a testing slack workspace created : slackbot-template.slack.com . Please get added your user/mail to this by admin.
 3. Make sure you add your local .env file with all secrets to the repo root.
-4. Once you have your code changes ready the run the code locally using `python slack_main.py` 
+4. Once you have your code changes ready then run the code locally using `python slack_main.py` 
 5. Then from the slackbot template workspace run your command by mention or direct message to test.
 
 ## Draft requirements 
@@ -123,9 +126,20 @@ Please refer to the below google docs
 https://docs.google.com/document/d/1D_efhIfCjikWhoY43WqJOOe25DEKsWeXIbmEpqkFJfo/edit?tab=t.0
 I will have those tasks added under our sustaining jira project soon.
 
-## TBD 
-1. unit tests to be added
-2. We need to raise a slack addon enablement service now ticket (https://redhat.service-now.com/help?id=sc_cat_item&sys_id=35bfc06313b82a00dce03ff18144b0d2 ) for this bot to be added to our workspace.
-3. Once we are ready with basic commands we can deploy this to our server / or any redhat platform where we run production workloads.  Then ppl can start using this on redhat workspace. 
-4. We need to limit this bot our user group which is not done yet.
-5. We need to create a build ,test , deploy pipeline to prod for automating new change deployment. Will use github actions.
+## Backend Deployment
+
+1. As of 285h may 2025 slack backed docker is build manually and pushed to registry `quay.io/ocp_sustaining_engineering/slack_backend` which is also open source.This will be automated via a build pipeline soon.
+2. It runs as a docker container inside `project-tools` VM in our openstack cluster. 
+   
+3. Troubleshooting tips :
+   Get the key of that server from admin to login . Then use below or similar commands to explore.
+
+   Docker run command : 
+    `docker run -d --name slack_backend --env-file /root/sec/.env --restart unless-stopped quay.io/ocp_sustaining_engineering/slack_backend:1.0.1`
+
+   To trace logs :
+   `docker logs -f slack_backend`
+
+   Increase the log:
+
+   update root/sec/.env and set LOG_LEVEL=DEBUG . Then stop the container and restart it with above mentioned run command.
