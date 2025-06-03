@@ -147,6 +147,7 @@ def handle_create_aws_vm(say, user, region, command_line):
                 ":hourglass_flowing_sand: Now processing your request for a Linux Instance... Please wait."
             )
 
+            region = command_params.get("region", region)
             # Create EC2 instance using the helper
             ec2_helper = EC2Helper(region=region)
             server_status_dict = ec2_helper.create_instance(
@@ -326,6 +327,7 @@ def helper_display_dict_output_as_table(instances_dict, print_keys, say, block_m
 def handle_list_aws_vms(say, region, user, command_line):
     try:
         params_dict = get_dict_of_command_parameters(command_line)
+        region = params_dict.get("region", region)
 
         ec2_helper = EC2Helper(region=region)  # Set your region
         instances_dict = ec2_helper.list_instances(params_dict)
