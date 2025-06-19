@@ -1,7 +1,9 @@
 from openstack import connection
+from openstack.exceptions import ResourceNotFound, ResourceFailure
 from config import config
 from sdk.tools.helpers import get_values_for_key_from_dict_of_parameters
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +69,7 @@ class OpenStackHelper:
                         "flavor": server.flavor.get("original_name")
                         or server.flavor.get("id"),
                         "network": net_name,
-                        "public_ip": ip_addr,
+                        "private_ip": ip_addr,
                         "key_name": getattr(server, "key_name", "N/A"),
                         "status": server.status,
                     }
@@ -86,36 +88,108 @@ class OpenStackHelper:
             )
             raise e
 
-    def create_vm(self, args):
+    def create_vm(self, params_dict):
         """
-        Create an OpenStack VM with the specified parameters provided as a list of arguments.
+        Create an OpenStack VM with the specified parameters provided as a dictionary.
+        :param params_dict: Dictionary of parameters including 'name', 'image-id', 'flavor', 'network', and 'key_name'.
+        :return: dictionary containing instance details.
+        """
+        required_params = ["name", "image-id", "flavor", "key_name"]
+        missing_params = [
+            param for param in required_params if param not in params_dict
+        ]
 
-        :param args: List of arguments: [name, image, flavor, network]
-        :return: dictionary
-        """
-        if len(args) != 4:
-            logger.error("create-openstack-vm: Invalid parameters supplied")
+        if missing_params:
+            logger.error(
+                f"Missing required parameters for VM creation: {', '.join(missing_params)}"
+            )
             raise ValueError(
-                "Invalid parameters: Usage: `create-openstack-vm <name> <image> <flavor> <network>`"
+                f"Missing required parameters: {', '.join(missing_params)}"
             )
 
-        name, image, flavor, network = args
+        # Extract parameters
+        name = params_dict["name"]
+        image_id = params_dict["image-id"]
+        flavor_name = params_dict["flavor"]
+        key_name = params_dict["key_name"]
+        network = params_dict.get("network", None)
 
-        logger.info(f"Creating OpenStack VM: {name}...")
+        logger.info(
+            f"Creating OpenStack VM: {name} with image {image_id}, flavor {flavor_name}, "
+            f"network {network}, key_name {key_name}"
+        )
+
+        networks_param = [{"uuid": network}] if network else []
+
+        # Validate the provided key_name
+        available_keys = [kp.name for kp in self.conn.compute.keypairs()]
+        if key_name not in available_keys:
+            logger.error(
+                f"Invalid key_name '{key_name}' provided. Available keypairs: {available_keys}"
+            )
+            raise ValueError(
+                f"Invalid key_name '{key_name}' provided. Available keypairs: {available_keys}"
+            )
 
         try:
+            # Resolve flavor by name
+            flavor = self.conn.compute.find_flavor(flavor_name, ignore_missing=False)
+            if not flavor:
+                raise ValueError(f"Flavor '{flavor_name}' not found in OpenStack.")
+
+            # Optionally validate image exists
+            image = self.conn.compute.find_image(image_id, ignore_missing=False)
+            if not image:
+                raise ValueError(f"Image '{image_id}' not found in OpenStack.")
+
             server = self.conn.compute.create_server(
-                name=name, image=image, flavor=flavor, networks=[{"uuid": network}]
+                name=name,
+                image_id=image.id,
+                flavor_id=flavor.id,
+                networks=networks_param,
+                key_name=key_name,
             )
+
+            # Wait for VM to become ACTIVE
+            server = self.conn.compute.wait_for_server(server)
+
             logger.info(f"VM {server.name} created successfully in OpenStack!")
-            # todo: add additional information to server_info dictionary later
+
+            # Extract the first fixed (private) IP address
+            private_ip = None
+            for addr_list in server.addresses.values():
+                for addr in addr_list:
+                    if addr.get("OS-EXT-IPS:type") == "fixed":
+                        private_ip = addr.get("addr")
+                        break
+                if private_ip:
+                    break
+
+            logger.info(f"VM {server.name} is ACTIVE with private IP: {private_ip}")
+
+            # Construct response dictionary
             server_info = {
                 "name": server.name,
+                "server_id": server.id,
+                "status": server.status,
+                "flavor": flavor.name,
+                "network": network or "Default Network",
+                "key_name": key_name,
+                "private_ip": private_ip or "N/A",
             }
+
             return {
                 "count": 1,
                 "instances": [server_info],
             }
+
+        except ResourceFailure as rf:
+            logger.error(f"OpenStack VM transitioned to ERROR state: {str(rf)}")
+            raise RuntimeError(
+                "OpenStack VM provisioning failed. Please verify image/flavor/network configuration."
+            ) from rf
+
         except Exception as e:
             logger.error(f"Error creating OpenStack VM: {str(e)}")
+            logger.error(traceback.format_exc())
             raise e
