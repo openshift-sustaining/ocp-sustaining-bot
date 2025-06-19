@@ -3,6 +3,7 @@ from sdk.openstack.core import OpenStackHelper
 from sdk.tools.helpers import get_dict_of_command_parameters
 import logging
 import traceback
+import botocore
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ def handle_help(say, user):
             "`list-team-links` - Display important team links.\n"
             "`create-openstack-vm <name> <image> <flavor> <network>` - Create an OpenStack VM.\n"
             "`list-openstack-vms [--status=active,shutoff]` : List OpenStack VMs optionally filtered by status.\n"
-            "`create-aws-vm <os_name> <instance_type> <key_pair>` - Create an AWS EC2 instance.\n"
+            "`create-aws-vm <os_name> <instance_type> <key_pair=new,existing>` - Create an AWS EC2 instance.\n"
             "`list-aws-vms [--state=pending,running,stopped]` : List AWS VMs optionally filtered by state.\n"
         )
 
@@ -105,7 +106,7 @@ def handle_hello(say, user):
     say(f"Hello <@{user}>! How can I assist you today?")
 
 
-def handle_create_aws_vm(say, user, region, command_line):
+def handle_create_aws_vm(say, user, region, command_line, app):
     try:
         # Parse the command parameters
         command_params = get_dict_of_command_parameters(command_line)
@@ -134,6 +135,12 @@ def handle_create_aws_vm(say, user, region, command_line):
             )
             return
 
+        # Key pair should be either 'new' or 'existing'
+        key_pair = key_pair.strip().lower()
+        if key_pair not in {"new", "existing"}:
+            say(":warning: `key_pair` should be either `new` or `existing`")
+            return
+
         # Ensure os_name is either 'Linux' or 'linux'
         if os_name.strip().lower() == "linux":
             logger.info(f"Operating System selected: {os_name}")
@@ -149,10 +156,63 @@ def handle_create_aws_vm(say, user, region, command_line):
 
             # Create EC2 instance using the helper
             ec2_helper = EC2Helper(region=region)
+
+            # Select key to use
+            key_to_use = {}
+            existing_key = {"KeyPairs": None}
+            try:
+                # Throws exception if there are no existing keys
+                existing_key = ec2_helper.describe_keypair(key_name=user)
+                logger.debug(
+                    f"Found existing key: {existing_key['KeyPairs'][0]['KeyFingerprint']}"
+                )
+            except botocore.exceptions.ClientError as e:
+                logger.debug("No existing keys found.")
+                pass
+
+            if key_pair == "new":
+                # Delete old key since we want to maintian only one key per user (per cloud)
+                if existing_key["KeyPairs"]:
+                    success = ec2_helper.delete_keypair(
+                        key_name=user
+                    )  # dict with bool field `Return`
+                    if not success.get("Return", None):
+                        logger.error(
+                            f"Some error occurred while deleting old key:\n{repr(success)}"
+                        )
+                        say(
+                            f"Some error occurred while deleting old key:\n{repr(success)}"
+                        )
+                        return
+                    logger.debug("Deleted old key.")
+
+                new_key = ec2_helper.create_keypair(key_name=user)
+                logger.debug(f"Created new key: {new_key['KeyFingerprint']}")
+                # DM user with private key
+                app.client.chat_postMessage(
+                    channel=user,
+                    text=f"New key created:\n```{new_key['KeyMaterial']}```\n"
+                    + f"Cloud: AWS, OS: {os_name}, Instance: {instance_type}",
+                )
+                logger.debug("Sent private key in user DM.")
+                key_to_use = {
+                    "KeyName": new_key["KeyName"],
+                    "KeyFingerprint": new_key["KeyFingerprint"],
+                }
+
+            else:
+                if not existing_key["KeyPairs"]:
+                    logger.debug("Existing key not found")
+                    say(":warning: You do not have any existing keys.")
+                    return
+
+                key_to_use = existing_key["KeyPairs"][0]
+                logger.debug(f"Using existing key: {key_to_use['KeyFingerprint']}")
+
             server_status_dict = ec2_helper.create_instance(
                 ami_id,  # AMI ID for Amazon Linux
                 instance_type,  # Instance type (e.g., t2.micro)
-                key_pair,  # Key pair (e.g., your_key_pair_name)
+                key_to_use["KeyName"],  # Key pair (e.g., your_key_pair_name)
             )
 
             # Log the server creation response for debugging
@@ -209,7 +269,7 @@ def handle_create_aws_vm(say, user, region, command_line):
                     "Make sure your key file has the correct permissions: `chmod 400 <path_to_your_private_key.pem>`\n"
                     "\n\n"
                     ":warning: *Key Pair Access:*\n"
-                    "To access this instance via SSH, you should have the `ocp-sust-slackbot-keypair` private key.\n"
+                    f"To access this instance via SSH, you should have the private key with fingerprint: `{key_to_use['KeyFingerprint']}`.\n"
                     "If you don't have it, please contact the admin for access."
                 )
             else:

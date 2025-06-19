@@ -259,3 +259,38 @@ class EC2Helper:
                 "instances": [],
                 "error": str(e),
             }
+
+    def create_keypair(self, key_name: str):
+        """
+        Function to create a keypair on aws and return the private key.
+        It will default to RSA algorithm instead of ED25519 because Windows only supports ED25519
+        """
+        client = self.session.client("ec2")
+        new_key = client.create_key_pair(
+            KeyName=key_name,
+            # default to RSA because ED25519 is not supported on Windows
+            KeyType="rsa",
+            KeyFormat="pem",  # pem is globally supported, ppk is PuTTY only
+            DryRun=False,
+        )
+
+        return new_key
+
+    def describe_keypair(self, key_name: list = None):
+        """
+        Function to return a list of all the keypairs or it will return the specific keypair if `key_name` is specified
+        """
+        client = self.session.client("ec2")
+        if key_name:
+            if not isinstance(key_name, list):  # Incase single key is passed
+                key_name = [key_name]
+            return client.describe_key_pairs(KeyNames=key_name)
+        else:
+            return client.describe_key_pairs()
+
+    def delete_keypair(self, key_name: str):
+        """
+        Function to delete the keypair specified
+        """
+        client = self.session.client("ec2")
+        return client.delete_key_pair(KeyName=key_name, DryRun=False)
