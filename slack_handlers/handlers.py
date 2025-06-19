@@ -1,9 +1,31 @@
 from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
 from sdk.tools.helpers import get_dict_of_command_parameters
+from dotenv import load_dotenv
+import os
 import logging
 import traceback
 
+# 2. Load .env
+load_dotenv()
+
+# Openstack Configuration mappings
+OS_IMAGE_MAP = {
+    "fedora": os.getenv("OPENSTACK_IMAGE_ID_FEDORA"),
+    "ubuntu": os.getenv("OPENSTACK_IMAGE_ID_UBUNTU"),
+    "centos": os.getenv("OPENSTACK_IMAGE_ID_CENTOS"),
+}
+
+NETWORK_MAP = {
+    "provider_net_lab": os.getenv("OPENSTACK_NETWORK_PROVIDER_NET_LAB"),
+    "provider_net_cci_5": os.getenv("OPENSTACK_NETWORK_PROVIDER_NET_CCI_5"),
+}
+
+DEFAULT_NETWORK = os.getenv("DEFAULT_NETWORK", "provider_net_cci_5")
+DEFAULT_SSH_USER = os.getenv("DEFAULT_SSH_USER", "fedora")
+DEFAULT_KEY_NAME = os.getenv("DEFAULT_KEY_NAME", "ocp-sust-slackbot-keypair")
+
+#
 logger = logging.getLogger(__name__)
 
 
@@ -30,14 +52,116 @@ def handle_help(say, user):
 
 
 # Helper function to handle creating an OpenStack VM
-def handle_create_openstack_vm(say, user, text):
+def handle_create_openstack_vm(say, user, command_line):
     try:
-        args = text.replace("create-openstack-vm", "").strip().split()
-        os_helper = OpenStackHelper()
-        os_helper.create_vm(args)
+        command_params = get_dict_of_command_parameters(command_line)
+
+        # Extract key params from command
+        name = command_params.get("name")
+        os_name = command_params.get("os_name")
+        flavor = command_params.get("flavor")
+        key_name = command_params.get("key_name")
+
+        logger.info(
+            f"Parsed Parameters: name={name}, os_name={os_name}, flavor={flavor}, key_name={key_name}"
+        )
+
+        # Validate required fields
+        required_params = ["name", "os_name", "flavor", "key_name"]
+        missing_params = [
+            param for param in required_params if not command_params.get(param)
+        ]
+
+        if missing_params:
+            say(
+                f":warning: Missing required parameters: {', '.join(missing_params)}. "
+                f"Usage: create-openstack-vm --name=<name> --os_name=<os_name> --flavor=<flavor> --key_name=<key>\n"
+                f"Supported OS names: {', '.join(OS_IMAGE_MAP.keys())}"
+            )
+            return
+
+        # Normalize OS name and retrieve corresponding image ID
+        os_name_lower = os_name.strip().lower()
+        image_id = OS_IMAGE_MAP.get(os_name_lower)
+
+        if not image_id:
+            say(
+                f":x: Unsupported OS name: `{os_name}`. "
+                f"Supported OS names: {', '.join(OS_IMAGE_MAP.keys())}"
+            )
+            return
+
+        # Resolve network ID using default network name
+        network_id = NETWORK_MAP.get(DEFAULT_NETWORK)
+        if not network_id:
+            say(
+                ":x: No valid network ID found for the default network. Please check configuration."
+            )
+            logger.error(f"Missing network ID for default network: {DEFAULT_NETWORK}")
+            return
+
+        logger.info(f"Using Image ID: {image_id} and Network ID: {network_id}")
+
+        # Build request payload for OpenStackHelper
+        params_dict = {
+            "name": name,
+            "image-id": image_id,
+            "flavor": flavor,
+            "key_name": key_name,
+            "network": network_id,
+        }
+
+        say(
+            ":hourglass_flowing_sand: Now processing your request for an OpenStack VM... Please wait."
+        )
+        openstack_helper = OpenStackHelper()
+        response = openstack_helper.create_vm(params_dict)
+
+        # Extract result from response
+        instances = response.get("instances", [])
+        if instances:
+            instance_info = instances[0]
+
+            say(":white_check_mark: *Successfully created OpenStack VM!*\n")
+
+            # Format and display instance metadata as table
+            print_keys = [
+                "name",
+                "server_id",
+                "key_name",
+                "flavor",
+                "network",
+                "status",
+                "private_ip",
+            ]
+            block_message = "Here are the details of your new OpenStack VM:"
+            helper_display_dict_output_as_table(
+                {"instances": [instance_info]}, print_keys, say, block_message
+            )
+
+            # Provide SSH access instructions for user
+            say(
+                f"\n\n"
+                ":key: *Access Instructions (Linux/Unix):*\n"
+                "Use the following command to SSH into your instance:\n"
+                f"`ssh -i <path_to_your_private_key.pem> {DEFAULT_SSH_USER}@{instance_info.get('private_ip', '<Private_IP>')}`\n"
+                "Make sure your key file has the correct permissions: `chmod 400 <path_to_your_private_key.pem>`\n"
+                "\n\n"
+                ":warning: *Key Pair Access:*\n"
+                f"To access this instance via SSH, you should have the `{instance_info.get('key_name', DEFAULT_KEY_NAME)}` private key.\n"
+                "If you don't have it, please contact the admin for access."
+            )
+
+        else:
+            say(":x: VM creation failed. No instance details returned.")
+            logger.error(f"OpenStack VM creation failed: {response}")
+
     except Exception as e:
-        logger.error(f"An error occurred creating the openstack VM : {e}")
-        say("An internal error occurred, please contact administrator.")
+        logger.error(f"Error during OpenStack VM creation: {e}")
+        logger.error(traceback.format_exc())
+        say(
+            ":x: An internal error occurred while creating the OpenStack VM. Please contact the administrator."
+        )
 
 
 # Helper function to list OpenStack VMs with error handling
@@ -47,7 +171,7 @@ def handle_list_openstack_vms(say, command_line=""):
         params_dict = get_dict_of_command_parameters(command_line)
 
         # Define valid status filters
-        VALID_STATUSES = {"ACTIVE", "SHUTOFF"}
+        VALID_STATUSES = {"ACTIVE", "SHUTOFF", "ERROR"}
         # Default to ACTIVE if no status filter provided
         status_filter = params_dict.get("status", "ACTIVE").upper()
 
@@ -81,7 +205,7 @@ def handle_list_openstack_vms(say, command_line=""):
                 "name",
                 "flavor",
                 "network",
-                "public_ip",
+                "private_ip",
                 "key_name",
                 "status",
             ]
