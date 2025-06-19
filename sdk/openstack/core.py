@@ -1,5 +1,5 @@
 from openstack import connection
-from openstack.exceptions import ResourceNotFound, ResourceFailure
+from openstack.exceptions import ResourceFailure
 from config import config
 from sdk.tools.helpers import get_values_for_key_from_dict_of_parameters
 import logging
@@ -88,7 +88,7 @@ class OpenStackHelper:
             )
             raise e
 
-    def create_vm(self, params_dict):
+    def create_servers(self, params_dict):
         """
         Create an OpenStack VM with the specified parameters provided as a dictionary.
         :param params_dict: Dictionary of parameters including 'name', 'image-id', 'flavor', 'network', and 'key_name'.

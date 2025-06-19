@@ -115,7 +115,7 @@ def handle_create_openstack_vm(say, user, command_line):
             ":hourglass_flowing_sand: Now processing your request for an OpenStack VM... Please wait."
         )
         openstack_helper = OpenStackHelper()
-        response = openstack_helper.create_vm(params_dict)
+        response = openstack_helper.create_servers(params_dict)
 
         # Extract result from response
         instances = response.get("instances", [])
