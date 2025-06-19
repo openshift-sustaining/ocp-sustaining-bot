@@ -166,7 +166,7 @@ def handle_create_aws_vm(say, user, region, command_line, app):
                 logger.debug(
                     f"Found existing key: {existing_key['KeyPairs'][0]['KeyFingerprint']}"
                 )
-            except botocore.exceptions.ClientError as e:
+            except botocore.exceptions.ClientError:
                 logger.debug("No existing keys found.")
                 pass
 
