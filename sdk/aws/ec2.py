@@ -5,6 +5,7 @@ import logging
 import random
 import string
 import traceback
+import botocore
 
 logger = logging.getLogger(__name__)
 
@@ -259,3 +260,57 @@ class EC2Helper:
                 "instances": [],
                 "error": str(e),
             }
+
+    def create_keypair(self, key_name: str):
+        """
+        Function to create a keypair on aws and return the private key.
+        It will default to RSA algorithm instead of ED25519 because Windows only supports ED25519
+        """
+        client = self.session.client("ec2")
+        new_key = client.create_key_pair(
+            KeyName=key_name,
+            # default to RSA because ED25519 is not supported on Windows
+            KeyType="rsa",
+            KeyFormat="pem",  # pem is globally supported, ppk is PuTTY only
+            DryRun=False,
+        )
+
+        return new_key
+
+    def describe_keypair(self, key_name: str = None):
+        """
+        Function to return a list of all the keypairs or it will return the specific keypair if `key_name` is specified
+        Returns a dictionary with `KeyName` and `KeyFingerprint` keys
+        """
+        client = self.session.client("ec2")
+        try:
+            if key_name:
+                # Ideally single key should be passed
+                if not isinstance(key_name, list):
+                    key_name = [key_name]
+                return client.describe_key_pairs(KeyNames=key_name).get(
+                    "KeyPairs", None
+                )[0]  # 1 key per user
+            else:
+                return client.describe_key_pairs().get("KeyPairs", None)
+        except botocore.exceptions.ClientError:
+            # Will throw exception if there are no keys
+            return None
+        except TypeError:
+            logger.error("No key found but `ClientError` not thrown.")
+            return None
+
+    def delete_keypair(self, key_name: str):
+        """
+        Function to delete the keypair specified
+        """
+        client = self.session.client("ec2")
+        result = client.delete_key_pair(KeyName=key_name, DryRun=False)
+        if result.get("Return", None):
+            logger.debug(f"Delete keypair result: {result}")
+            return True
+        else:
+            logger.error(
+                f"Couldn't delete keypair with name: {key_name}. Error:\n{result}"
+            )
+            return False
