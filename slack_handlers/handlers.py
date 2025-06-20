@@ -1,29 +1,10 @@
 from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
 from sdk.tools.helpers import get_dict_of_command_parameters
-from dotenv import load_dotenv
-import os
+from config import config
 import logging
 import traceback
 
-# 2. Load .env
-load_dotenv()
-
-# Openstack Configuration mappings
-OS_IMAGE_MAP = {
-    "fedora": os.getenv("OPENSTACK_IMAGE_ID_FEDORA"),
-    "ubuntu": os.getenv("OPENSTACK_IMAGE_ID_UBUNTU"),
-    "centos": os.getenv("OPENSTACK_IMAGE_ID_CENTOS"),
-}
-
-NETWORK_MAP = {
-    "provider_net_lab": os.getenv("OPENSTACK_NETWORK_PROVIDER_NET_LAB"),
-    "provider_net_cci_5": os.getenv("OPENSTACK_NETWORK_PROVIDER_NET_CCI_5"),
-}
-
-DEFAULT_NETWORK = os.getenv("DEFAULT_NETWORK", "provider_net_cci_5")
-DEFAULT_SSH_USER = os.getenv("DEFAULT_SSH_USER", "fedora")
-DEFAULT_KEY_NAME = os.getenv("DEFAULT_KEY_NAME", "ocp-sust-slackbot-keypair")
 
 #
 logger = logging.getLogger(__name__)
@@ -76,28 +57,30 @@ def handle_create_openstack_vm(say, user, command_line):
             say(
                 f":warning: Missing required parameters: {', '.join(missing_params)}. "
                 f"Usage: create-openstack-vm --name=<name> --os_name=<os_name> --flavor=<flavor> --key_name=<key>\n"
-                f"Supported OS names: {', '.join(OS_IMAGE_MAP.keys())}"
+                f"Supported OS names: {', '.join(config.OS_IMAGE_MAP.keys())}"
             )
             return
 
         # Normalize OS name and retrieve corresponding image ID
         os_name_lower = os_name.strip().lower()
-        image_id = OS_IMAGE_MAP.get(os_name_lower)
+        image_id = config.OS_IMAGE_MAP.get(os_name_lower)
 
         if not image_id:
             say(
                 f":x: Unsupported OS name: `{os_name}`. "
-                f"Supported OS names: {', '.join(OS_IMAGE_MAP.keys())}"
+                f"Supported OS names: {', '.join(config.OS_IMAGE_MAP.keys())}"
             )
             return
 
         # Resolve network ID using default network name
-        network_id = NETWORK_MAP.get(DEFAULT_NETWORK)
+        network_id = config.OS_NETWORK_MAP.get(config.DEFAULT_NETWORK)
         if not network_id:
             say(
                 ":x: No valid network ID found for the default network. Please check configuration."
             )
-            logger.error(f"Missing network ID for default network: {DEFAULT_NETWORK}")
+            logger.error(
+                f"Missing network ID for default network: {config.DEFAULT_NETWORK}"
+            )
             return
 
         logger.info(f"Using Image ID: {image_id} and Network ID: {network_id}")
@@ -144,11 +127,11 @@ def handle_create_openstack_vm(say, user, command_line):
                 f"\n\n"
                 ":key: *Access Instructions (Linux/Unix):*\n"
                 "Use the following command to SSH into your instance:\n"
-                f"`ssh -i <path_to_your_private_key.pem> {DEFAULT_SSH_USER}@{instance_info.get('private_ip', '<Private_IP>')}`\n"
+                f"`ssh -i <path_to_your_private_key.pem> {config.DEFAULT_SSH_USER}@{instance_info.get('private_ip', '<Private_IP>')}`\n"
                 "Make sure your key file has the correct permissions: `chmod 400 <path_to_your_private_key.pem>`\n"
                 "\n\n"
                 ":warning: *Key Pair Access:*\n"
-                f"To access this instance via SSH, you should have the `{instance_info.get('key_name', DEFAULT_KEY_NAME)}` private key.\n"
+                f"To access this instance via SSH, you should have the `{instance_info.get('key_name', config.DEFAULT_KEY_NAME)}` private key.\n"
                 "If you don't have it, please contact the admin for access."
             )
 
