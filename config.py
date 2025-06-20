@@ -79,7 +79,7 @@ class Config:
         try:
             return json.loads(value)
         except json.JSONDecodeError as e:
-            logging.error(f"Invalid JSON format for {key}: {value}")
+            logging.error(f"Invalid JSON format for {key}: {value} | Error: {e} ")
             raise
 
     def setup_logging(self):
