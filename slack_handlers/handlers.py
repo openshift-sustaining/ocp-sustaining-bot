@@ -158,56 +158,9 @@ def handle_create_aws_vm(say, user, region, command_line, app):
             ec2_helper = EC2Helper(region=region)
 
             # Select key to use
-            key_to_use = {}
-            existing_key = {"KeyPairs": None}
-            try:
-                # Throws exception if there are no existing keys
-                existing_key = ec2_helper.describe_keypair(key_name=user)
-                logger.debug(
-                    f"Found existing key: {existing_key['KeyPairs'][0]['KeyFingerprint']}"
-                )
-            except botocore.exceptions.ClientError:
-                logger.debug("No existing keys found.")
-                pass
-
-            if key_pair == "new":
-                # Delete old key since we want to maintian only one key per user (per cloud)
-                if existing_key["KeyPairs"]:
-                    success = ec2_helper.delete_keypair(
-                        key_name=user
-                    )  # dict with bool field `Return`
-                    if not success.get("Return", None):
-                        logger.error(
-                            f"Some error occurred while deleting old key:\n{repr(success)}"
-                        )
-                        say(
-                            f"Some error occurred while deleting old key:\n{repr(success)}"
-                        )
-                        return
-                    logger.debug("Deleted old key.")
-
-                new_key = ec2_helper.create_keypair(key_name=user)
-                logger.debug(f"Created new key: {new_key['KeyFingerprint']}")
-                # DM user with private key
-                app.client.chat_postMessage(
-                    channel=user,
-                    text=f"New key created:\n```{new_key['KeyMaterial']}```\n"
-                    + f"Cloud: AWS, OS: {os_name}, Instance: {instance_type}",
-                )
-                logger.debug("Sent private key in user DM.")
-                key_to_use = {
-                    "KeyName": new_key["KeyName"],
-                    "KeyFingerprint": new_key["KeyFingerprint"],
-                }
-
-            else:
-                if not existing_key["KeyPairs"]:
-                    logger.debug("Existing key not found")
-                    say(":warning: You do not have any existing keys.")
-                    return
-
-                key_to_use = existing_key["KeyPairs"][0]
-                logger.debug(f"Using existing key: {key_to_use['KeyFingerprint']}")
+            key_to_use = _helper_select_keypair(
+                key_pair, user, app, os_name, instance_type, ec2_helper
+            )
 
             server_status_dict = ec2_helper.create_instance(
                 ami_id,  # AMI ID for Amazon Linux
@@ -466,3 +419,53 @@ def handle_list_team_links(say, user):
             },
         ],
     )
+
+
+def _helper_select_keypair(
+    key_option, user, app, os_name, instance_type, cloud_sdk_obj
+):
+    key_to_use = {}
+
+    existing_key = cloud_sdk_obj.describe_keypair(key_name=user)
+    if existing_key:
+        logger.debug(f"Found existing key: {existing_key['KeyFingerprint']}")
+    else:
+        logger.debug("No existing keys found.")
+
+    if key_option == "new":
+        # Delete old key since we want to maintian only one key per user (per cloud)
+        if existing_key:
+            success = cloud_sdk_obj.delete_keypair(key_name=user)
+            if not success:
+                say(f"Some error occurred while deleting old key.")
+                return
+            logger.debug("Deleted old key.")
+
+        new_key = cloud_sdk_obj.create_keypair(key_name=user)
+        logger.debug(f"Created new key: {new_key['KeyFingerprint']}")
+
+        # DM user with private key
+        app.client.chat_postMessage(
+            channel=user,
+            text=f"New key created:\n```{new_key['KeyMaterial']}```\n"
+            + f"Cloud: AWS, OS: {os_name}, Instance: {instance_type}",
+        )
+        logger.debug("Sent private key in user DM.")
+
+        key_to_use = {
+            "KeyName": new_key["KeyName"],
+            "KeyFingerprint": new_key["KeyFingerprint"],
+        }
+
+        return key_to_use
+
+    else:
+        if not existing_key:
+            logger.debug("Existing key not found")
+            say(":warning: You do not have any existing keys.")
+            return
+
+        key_to_use = existing_key
+        logger.debug(f"Using existing key: {key_to_use['KeyFingerprint']}")
+
+        return key_to_use

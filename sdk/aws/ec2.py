@@ -276,21 +276,40 @@ class EC2Helper:
 
         return new_key
 
-    def describe_keypair(self, key_name: list = None):
+    def describe_keypair(self, key_name: str = None):
         """
         Function to return a list of all the keypairs or it will return the specific keypair if `key_name` is specified
+        Returns a dictionary with `KeyName` and `KeyFingerprint` keys
         """
         client = self.session.client("ec2")
-        if key_name:
-            if not isinstance(key_name, list):  # Incase single key is passed
-                key_name = [key_name]
-            return client.describe_key_pairs(KeyNames=key_name)
-        else:
-            return client.describe_key_pairs()
+        try:
+            if key_name:
+                # Ideally single key should be passed
+                if not isinstance(key_name, list):
+                    key_name = [key_name]
+                return client.describe_key_pairs(KeyNames=key_name).get(
+                    "KeyPairs", None
+                )[0]  # 1 key per user
+            else:
+                return client.describe_key_pairs().get("KeyPairs", None)
+        except botocore.exceptions.ClientError:
+            # Will throw exception if there are no keys
+            return None
+        except TypeError:
+            logger.error("No key found but `ClientError` not thrown.")
+            return None
 
     def delete_keypair(self, key_name: str):
         """
         Function to delete the keypair specified
         """
         client = self.session.client("ec2")
-        return client.delete_key_pair(KeyName=key_name, DryRun=False)
+        result = client.delete_key_pair(KeyName=key_name, DryRun=False)
+        if result.get("Return", None):
+            logger.debug(f"Delete keypair result: {result}")
+            return True
+        else:
+            logger.error(
+                f"Couldn't delete keypair with name: {key_name}. Error:\n{result}"
+            )
+            return False
