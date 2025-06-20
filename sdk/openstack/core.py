@@ -88,34 +88,19 @@ class OpenStackHelper:
             )
             raise e
 
-    def create_servers(self, params_dict):
+    def create_servers(self, name, image_id, flavor, key_name, network=None):
         """
         Create an OpenStack VM with the specified parameters provided as a dictionary.
-        :param params_dict: Dictionary of parameters including 'name', 'image-id', 'flavor', 'network', and 'key_name'.
+        :param name: Name of the VM.
+        :param image_id: ID of the image to use.
+        :param flavor: Flavor name (size) of the VM.
+        :param key_name: Name of the SSH keypair to associate.
+        :param network: (Optional) Network UUID to attach the instance to.
         :return: dictionary containing instance details.
         """
-        required_params = ["name", "image-id", "flavor", "key_name"]
-        missing_params = [
-            param for param in required_params if param not in params_dict
-        ]
-
-        if missing_params:
-            logger.error(
-                f"Missing required parameters for VM creation: {', '.join(missing_params)}"
-            )
-            raise ValueError(
-                f"Missing required parameters: {', '.join(missing_params)}"
-            )
-
-        # Extract parameters
-        name = params_dict["name"]
-        image_id = params_dict["image-id"]
-        flavor_name = params_dict["flavor"]
-        key_name = params_dict["key_name"]
-        network = params_dict.get("network", None)
 
         logger.info(
-            f"Creating OpenStack VM: {name} with image {image_id}, flavor {flavor_name}, "
+            f"Creating OpenStack VM: {name} with image {image_id}, flavor {flavor}, "
             f"network {network}, key_name {key_name}"
         )
 
@@ -133,9 +118,9 @@ class OpenStackHelper:
 
         try:
             # Resolve flavor by name
-            flavor = self.conn.compute.find_flavor(flavor_name, ignore_missing=False)
+            flavor = self.conn.compute.find_flavor(flavor, ignore_missing=False)
             if not flavor:
-                raise ValueError(f"Flavor '{flavor_name}' not found in OpenStack.")
+                raise ValueError(f"Flavor '{flavor}' not found in OpenStack.")
 
             # Optionally validate image exists
             image = self.conn.compute.find_image(image_id, ignore_missing=False)

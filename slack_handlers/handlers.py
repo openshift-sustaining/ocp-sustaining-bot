@@ -85,20 +85,13 @@ def handle_create_openstack_vm(say, user, command_line):
 
         logger.info(f"Using Image ID: {image_id} and Network ID: {network_id}")
 
-        # Build request payload for OpenStackHelper
-        params_dict = {
-            "name": name,
-            "image-id": image_id,
-            "flavor": flavor,
-            "key_name": key_name,
-            "network": network_id,
-        }
-
         say(
             ":hourglass_flowing_sand: Now processing your request for an OpenStack VM... Please wait."
         )
         openstack_helper = OpenStackHelper()
-        response = openstack_helper.create_servers(params_dict)
+        response = openstack_helper.create_servers(
+            name, image_id, flavor, key_name, network_id
+        )
 
         # Extract result from response
         instances = response.get("instances", [])
