@@ -5,6 +5,7 @@ import logging
 import random
 import string
 import traceback
+import botocore
 
 logger = logging.getLogger(__name__)
 

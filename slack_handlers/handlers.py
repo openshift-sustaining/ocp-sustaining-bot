@@ -3,7 +3,6 @@ from sdk.openstack.core import OpenStackHelper
 from sdk.tools.helpers import get_dict_of_command_parameters
 import logging
 import traceback
-import botocore
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +158,7 @@ def handle_create_aws_vm(say, user, region, command_line, app):
 
             # Select key to use
             key_to_use = _helper_select_keypair(
-                key_pair, user, app, os_name, instance_type, ec2_helper
+                key_pair, user, app, os_name, instance_type, say, ec2_helper
             )
 
             server_status_dict = ec2_helper.create_instance(
@@ -422,7 +421,7 @@ def handle_list_team_links(say, user):
 
 
 def _helper_select_keypair(
-    key_option, user, app, os_name, instance_type, cloud_sdk_obj
+    key_option, user, app, os_name, instance_type, say, cloud_sdk_obj
 ):
     key_to_use = {}
 
@@ -437,7 +436,7 @@ def _helper_select_keypair(
         if existing_key:
             success = cloud_sdk_obj.delete_keypair(key_name=user)
             if not success:
-                say(f"Some error occurred while deleting old key.")
+                say("Some error occurred while deleting old key.")
                 return
             logger.debug("Deleted old key.")
 
