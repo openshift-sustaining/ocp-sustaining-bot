@@ -1,6 +1,7 @@
 import logging
 import os
 from dotenv import load_dotenv
+import json
 
 #
 load_dotenv()
@@ -52,10 +53,34 @@ class Config:
                 logging.error(f"Unexpected error with environment variable {key}: {e}")
                 raise
 
+        # structured OpenStack-related variables
+        self.OS_IMAGE_MAP = self._load_json_env("OS_IMAGE_MAP")
+        self.OS_NETWORK_MAP = self._load_json_env("OS_NETWORK_MAP")
+        self.DEFAULT_NETWORK = os.getenv("DEFAULT_NETWORK", "provider_net_cci_5")
+        self.DEFAULT_SSH_USER = os.getenv("DEFAULT_SSH_USER", "fedora")
+        self.DEFAULT_KEY_NAME = os.getenv(
+            "DEFAULT_KEY_NAME", "ocp-sust-slackbot-keypair"
+        )
+
+        # Logging level
         log_level = os.getenv("LOG_LEVEL", "INFO")
         self.log_level = log_level.upper()
 
         self.setup_logging()
+
+    def _load_json_env(self, key):
+        """
+        Load a JSON string from an env var and convert it into a dictionary.
+        Raises error on missing or invalid format.
+        """
+        value = os.getenv(key)
+        if not value:
+            raise ValueError(f"Missing required environment variable: {key}")
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError as e:
+            logging.error(f"Invalid JSON format for {key}: {value}")
+            raise
 
     def setup_logging(self):
         log_format = "[%(asctime)s %(levelname)s %(name)s] %(message)s"
