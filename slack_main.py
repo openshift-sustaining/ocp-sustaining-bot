@@ -64,7 +64,11 @@ def mention_handler(body, say):
             "list-openstack-vms": lambda: handle_list_openstack_vms(say, command_line),
             "hello": lambda: handle_hello(say, user),
             "create-aws-vm": lambda: handle_create_aws_vm(
-                say, user, region, command_line
+                say,
+                user,
+                region,
+                command_line,
+                app,  # pass `app` so that bot can send DM to users
             ),
             "list-aws-vms": lambda: handle_list_aws_vms(
                 say, region, user, command_line
