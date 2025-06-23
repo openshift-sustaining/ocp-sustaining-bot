@@ -161,6 +161,10 @@ def handle_create_aws_vm(say, user, region, command_line, app):
                 key_pair, user, app, os_name, instance_type, say, ec2_helper
             )
 
+            if not key_to_use:
+                logger.error("Aborting VM creation because returned keypair was empty.")
+                return
+
             server_status_dict = ec2_helper.create_instance(
                 ami_id,  # AMI ID for Amazon Linux
                 instance_type,  # Instance type (e.g., t2.micro)
