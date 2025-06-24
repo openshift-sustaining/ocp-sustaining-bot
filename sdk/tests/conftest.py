@@ -26,6 +26,6 @@ def setup_environment_variables():
     os.environ["ALLOWED_SLACK_USERS"] = "ALLOWED_SLACK_USERS"
     os.environ["OS_IMAGE_MAP"] = '{"root": "dummy-image-id"}'
     os.environ["OS_NETWORK_MAP"] = '{"network1": "dummy-network-id"}'
-    os.environ["DEFAULT_NETWORK"] = "network1"
-    os.environ["DEFAULT_SSH_USER"] = "root"
-    os.environ["DEFAULT_KEY_NAME"] = "dummy-key-name"
+    os.environ["OS_DEFAULT_NETWORK"] = "network1"
+    os.environ["OS_DEFAULT_SSH_USER"] = "root"
+    os.environ["OS_DEFAULT_KEY_NAME"] = "dummy-key-name"

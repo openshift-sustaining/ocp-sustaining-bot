@@ -56,10 +56,10 @@ class Config:
         # structured OpenStack-related variables
         self.OS_IMAGE_MAP = self._load_json_env("OS_IMAGE_MAP")
         self.OS_NETWORK_MAP = self._load_json_env("OS_NETWORK_MAP")
-        self.DEFAULT_NETWORK = os.getenv("DEFAULT_NETWORK", "provider_net_cci_5")
-        self.DEFAULT_SSH_USER = os.getenv("DEFAULT_SSH_USER", "fedora")
+        self.DEFAULT_NETWORK = os.getenv("OS_DEFAULT_NETWORK", "provider_net_cci_5")
+        self.DEFAULT_SSH_USER = os.getenv("OS_DEFAULT_SSH_USER", "fedora")
         self.DEFAULT_KEY_NAME = os.getenv(
-            "DEFAULT_KEY_NAME", "ocp-sust-slackbot-keypair"
+            "OS_DEFAULT_KEY_NAME", "ocp-sust-slackbot-keypair"
         )
 
         # Logging level
