@@ -2,14 +2,6 @@
 
 This is a Slack bot built to help users interact with AWS and OpenStack cloud resources through simple commands. The bot can create OpenShift clusters in AWS and virtual machines in OpenStack etc etc. It can connect to JIRA and Jenkins to perform some tasks.It also provides helpful information when mentioned or through direct messages.
 
-# Where can you find it? 
-
-
-
-https://github.com/user-attachments/assets/582a64d1-78c5-4c69-bef1-bab90fadf4eb
-
-
-
 ## Features
 
 - **Infrastructure commands**: Handles the infrastructure create tasks with different cloud providers : AWS, AZURE, GCP etc.
