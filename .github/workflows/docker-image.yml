@@ -22,15 +22,16 @@ jobs:
 
     - name: Get Patch Version
       run: |
-        ZVALUE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[].name'| grep -E '^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$' |wc -l|awk '{print $1}')
+        ZVALUE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$' |wc -l|awk '{print $1}')
         echo "ZVALUE=$ZVALUE" >> $GITHUB_ENV
+        echo "Patch version : $ZVALUE"
 
     - name: Generate the version number
       id: version
       run: |
         #echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}" >> $GITHUB_ENV
         echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.ZVALUE }}" >> $GITHUB_ENV
-        echo "Computed version: ${{ env.VERSION }}" 
+        echo "Computed version: $VERSION" 
 
     - name: Log in to Docker registry
       run: echo "${{ secrets.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_REGISTRY_USERNAME }}" --password-stdin
