@@ -26,6 +26,9 @@ jobs:
         echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}" >> $GITHUB_ENV
         echo "Computed version: ${{ env.VERSION }}" 
 
+    - name: Log in to Docker registry
+      run: echo "${{ secrets.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_REGISTRY_USERNAME }}" --password-stdin
+
     - name: Build the Docker image
       run: |
         IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.VERSION }}
