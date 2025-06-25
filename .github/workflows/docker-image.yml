@@ -22,7 +22,8 @@ jobs:
     - name: Get Patch Version
       run: |
         PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$' |wc -l|awk '{print $1}')
-        echo "$PATCH_VERSION=PATCH_VERSION" >> $GITHUB_ENV
+        # echo "$PATCH_VERSION=PATCH_VERSION" >> $GITHUB_ENV
+        echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
         echo "Patch version : $PATCH_VERSION"
 
     - name: Generate the version number
@@ -30,7 +31,8 @@ jobs:
       run: |
         #echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}" >> $GITHUB_ENV
         IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}"
-        echo "$IMAGE_VERSION=IMAGE_VERSION" >> $GITHUB_ENV
+        #echo "$IMAGE_VERSION=IMAGE_VERSION" >> $GITHUB_ENV
+        echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed version: $IMAGE_VERSION" 
 
     - name: Log in to Docker registry
