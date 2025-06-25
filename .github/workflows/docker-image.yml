@@ -27,13 +27,12 @@ jobs:
         echo "Computed version: $VERSION" 
 
     - name: Build the Docker image
-      #run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
       run: |
         IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.VERSION }}
-        # docker build -t $IMAGE_NAME .
+        docker build -t $IMAGE_NAME .
         echo "IMAGE_NAME=$IMAGE_NAME"
 
     - name: Push Docker image
       run: |
-        # docker push $IMAGE_NAME
+        docker push $IMAGE_NAME
         echo "Pushed $IMAGE_NAME"
