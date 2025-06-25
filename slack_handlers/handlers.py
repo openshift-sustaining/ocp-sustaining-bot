@@ -25,6 +25,8 @@ def handle_help(say, user):
             "`list-openstack-vms [--status=active,shutoff]` : List OpenStack VMs optionally filtered by status.\n"
             "`create-aws-vm <os_name> <instance_type> <key_pair=new,existing>` - Create an AWS EC2 instance.\n"
             "`list-aws-vms [--state=pending,running,stopped]` : List AWS VMs optionally filtered by state.\n"
+            "`aws-modify-vm --stop --vm-id=<id>` - Stop an AWS EC2 instance.\n"
+            "`aws-modify-vm --delete --vm-id=<id>` - Delete an AWS EC2 instance.\n"
         )
 
     except Exception as e:
@@ -478,6 +480,91 @@ def handle_list_aws_vms(say, region, user, params_dict):
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
+
+
+def handle_aws_modify_vm(say, region, user, params_dict):
+    """
+    Helper function to modify AWS EC2 instances (stop/delete)
+    """
+    try:
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_aws_modify_vm"
+            )
+
+        stop_action = params_dict.get("stop", False)
+        delete_action = params_dict.get("delete", False)
+        vm_id = params_dict.get("vm-id")
+
+        if not vm_id:
+            say(
+                ":warning: Missing required parameter `--vm-id`. Usage: `aws-modify-vm --stop --vm-id=<id>` or `aws-modify-vm --delete --vm-id=<id>`"
+            )
+            return
+
+        if not stop_action and not delete_action:
+            say(":warning: You must specify either `--stop` or `--delete` action.")
+            return
+
+        if stop_action and delete_action:
+            say(
+                ":warning: Please specify only one action: either `--stop` or `--delete`, not both."
+            )
+            return
+
+        ec2_helper = EC2Helper(region=region)
+
+        if stop_action:
+            logger.info(f"User {user} requested to stop instance {vm_id}")
+            say(f":hourglass_flowing_sand: Attempting to stop instance `{vm_id}`...")
+
+            result = ec2_helper.stop_instance(vm_id)
+
+            if result["success"]:
+                say(
+                    f":white_check_mark: *Successfully initiated stop for instance `{vm_id}`*\n"
+                    f"• Previous state: `{result['previous_state']}`\n"
+                    f"• Current state: `{result['current_state']}`\n"
+                    f"\n:information_source: The instance will take a moment to fully stop."
+                )
+            else:
+                logger.error(
+                    f"Failed to stop instance `{vm_id}`, error: {result['error']}"
+                )
+                say(f":x: *Failed to stop instance `{vm_id}`*")
+
+        elif delete_action:
+            logger.info(f"User {user} requested to terminate instance {vm_id}")
+
+            say(
+                f":warning: *Termination Warning*\n"
+                f"You are about to permanently terminate instance `{vm_id}`. This action cannot be undone.\n"
+                f":hourglass_flowing_sand: Proceeding with termination..."
+            )
+
+            result = ec2_helper.terminate_instance(vm_id)
+
+            if result["success"]:
+                instance_name = result.get("instance_name", "N/A")
+                say(
+                    f":white_check_mark: *Successfully initiated termination for instance `{vm_id}`*\n"
+                    f"• Instance name: `{instance_name}`\n"
+                    f"• Previous state: `{result['previous_state']}`\n"
+                    f"• Current state: `{result['current_state']}`\n"
+                    f"\n:information_source: The instance is being terminated and will be permanently deleted."
+                )
+            else:
+                logger.error(
+                    f"Failed to terminate instance `{vm_id}`, error: {result['error']}"
+                )
+                say(f":x: *Failed to terminate instance `{vm_id}`*")
+
+    except Exception as e:
+        logger.error(f"An error occurred while modifying EC2 instance: {e}")
+        logger.error(traceback.format_exc())
+        say(
+            ":x: An internal error occurred while modifying the EC2 instance. Please contact the administrator."
+        )
 
 
 # Helper function to list important team links
