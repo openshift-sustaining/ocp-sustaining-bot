@@ -22,6 +22,7 @@ jobs:
     - name: Get Patch Version
       run: |
         PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$' |wc -l|awk '{print $1}')
+        echo "Patch version before : $PATCH_VERSION"
         if [ $PATCH_VERSION -ne 0 ]
         then
           PATCH_VERSION=$((PATCH_VERSION+1))
