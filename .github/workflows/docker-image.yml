@@ -1,4 +1,4 @@
-# second attempt
+# 25th June 18:21
 name: Docker Image CI
 
 on:
@@ -22,18 +22,15 @@ jobs:
     - name: Get Patch Version
       run: |
         PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$' |wc -l|awk '{print $1}')
-        # echo "$PATCH_VERSION=PATCH_VERSION" >> $GITHUB_ENV
         echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
         echo "Patch version : $PATCH_VERSION"
 
-    - name: Generate the version number
+    - name: Generate the version number from the major version, minor version and patch version
       id: version
       run: |
-        #echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}" >> $GITHUB_ENV
         IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}"
-        #echo "$IMAGE_VERSION=IMAGE_VERSION" >> $GITHUB_ENV
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
-        echo "Computed version: $IMAGE_VERSION" 
+        echo "Computed image version: $IMAGE_VERSION" 
 
     - name: Log in to Docker registry
       run: echo "${{ secrets.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_REGISTRY_USERNAME }}" --password-stdin
@@ -48,5 +45,5 @@ jobs:
     - name: Push Docker image
       run: |
         echo "Pushing ${{ env.IMAGE_NAME }} .."
-        #docker push ${{ env.IMAGE_NAME }} 
+        docker push ${{ env.IMAGE_NAME }} 
         echo "Pushed ${{ env.IMAGE_NAME }}"
