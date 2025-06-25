@@ -73,13 +73,13 @@ def handle_create_openstack_vm(say, user, command_line):
             return
 
         # Resolve network ID using default network name
-        network_id = config.OS_NETWORK_MAP.get(config.DEFAULT_NETWORK)
+        network_id = config.OS_NETWORK_MAP.get(config.OS_DEFAULT_NETWORK)
         if not network_id:
             say(
                 ":x: No valid network ID found for the default network. Please check configuration."
             )
             logger.error(
-                f"Missing network ID for default network: {config.DEFAULT_NETWORK}"
+                f"Missing network ID for default network: {config.OS_DEFAULT_NETWORK}"
             )
             return
 
@@ -120,11 +120,11 @@ def handle_create_openstack_vm(say, user, command_line):
                 f"\n\n"
                 ":key: *Access Instructions (Linux/Unix):*\n"
                 "Use the following command to SSH into your instance:\n"
-                f"`ssh -i <path_to_your_private_key.pem> {config.DEFAULT_SSH_USER}@{instance_info.get('private_ip', '<Private_IP>')}`\n"
+                f"`ssh -i <path_to_your_private_key.pem> {config.OS_DEFAULT_SSH_USER}@{instance_info.get('private_ip', '<Private_IP>')}`\n"
                 "Make sure your key file has the correct permissions: `chmod 400 <path_to_your_private_key.pem>`\n"
                 "\n\n"
                 ":warning: *Key Pair Access:*\n"
-                f"To access this instance via SSH, you should have the `{instance_info.get('key_name', config.DEFAULT_KEY_NAME)}` private key.\n"
+                f"To access this instance via SSH, you should have the `{instance_info.get('key_name', config.OS_DEFAULT_KEY_NAME)}` private key.\n"
                 "If you don't have it, please contact the admin for access."
             )
 

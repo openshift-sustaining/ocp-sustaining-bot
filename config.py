@@ -33,6 +33,11 @@ class Config:
             "OS_AUTH_TYPE",
             "ALLOW_ALL_WORKSPACE_USERS",
             "ALLOWED_SLACK_USERS",
+            "OS_IMAGE_MAP",
+            "OS_NETWORK_MAP",
+            "OS_DEFAULT_NETWORK",
+            "OS_DEFAULT_SSH_USER",
+            "OS_DEFAULT_KEY_NAME",
         ]
         for key in required_keys:
             value = os.getenv(key)
@@ -53,34 +58,25 @@ class Config:
                 logging.error(f"Unexpected error with environment variable {key}: {e}")
                 raise
 
-        # structured OpenStack-related variables
-        self.OS_IMAGE_MAP = self._load_json_env("OS_IMAGE_MAP")
-        self.OS_NETWORK_MAP = self._load_json_env("OS_NETWORK_MAP")
-        self.DEFAULT_NETWORK = os.getenv("OS_DEFAULT_NETWORK", "provider_net_cci_5")
-        self.DEFAULT_SSH_USER = os.getenv("OS_DEFAULT_SSH_USER", "fedora")
-        self.DEFAULT_KEY_NAME = os.getenv(
-            "OS_DEFAULT_KEY_NAME", "ocp-sust-slackbot-keypair"
-        )
+        # Parse all environment variables
+        for key, value in os.environ.items():
+            value = value.strip()
+            parsed = value
+
+            if value.startswith("{") or value.startswith("["):
+                try:
+                    parsed = json.loads(value)
+                except json.JSONDecodeError as e:
+                    logging.error(f"Invalid JSON format for {key}: {e}")
+                    raise ValueError(f"Invalid JSON format for {key}")
+
+            setattr(self, key, parsed)
 
         # Logging level
         log_level = os.getenv("LOG_LEVEL", "INFO")
         self.log_level = log_level.upper()
 
         self.setup_logging()
-
-    def _load_json_env(self, key):
-        """
-        Load a JSON string from an env var and convert it into a dictionary.
-        Raises error on missing or invalid format.
-        """
-        value = os.getenv(key)
-        if not value:
-            raise ValueError(f"Missing required environment variable: {key}")
-        try:
-            return json.loads(value)
-        except json.JSONDecodeError as e:
-            logging.error(f"Invalid JSON format for {key}: {value} | Error: {e} ")
-            raise
 
     def setup_logging(self):
         log_format = "[%(asctime)s %(levelname)s %(name)s] %(message)s"
