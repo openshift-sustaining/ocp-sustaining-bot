@@ -39,7 +39,7 @@ jobs:
 
     - name: Build the Docker image
       run: |
-        IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.VERSION }}
+        IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.IMAGE_VERSION }}
         docker build -t $IMAGE_NAME .
         echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
 
