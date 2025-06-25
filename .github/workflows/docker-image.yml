@@ -30,7 +30,7 @@ jobs:
       id: version
       run: |
         #echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}" >> $GITHUB_ENV
-        IMAGE_VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.ZVALUE }}"
+        IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}"
         echo "$IMAGE_VERSION=IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed version: $IMAGE_VERSION" 
 
