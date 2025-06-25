@@ -28,7 +28,8 @@ jobs:
     - name: Generate the version number
       id: version
       run: |
-        echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}" >> $GITHUB_ENV
+        #echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}" >> $GITHUB_ENV
+        echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.ZVALUE }}" >> $GITHUB_ENV
         echo "Computed version: ${{ env.VERSION }}" 
 
     - name: Log in to Docker registry
