@@ -41,7 +41,7 @@ cd ocp-sustaining-bot
 ```
 
 ### 2. Create a Virtual Environment
-It’s recommended to use a virtual environment to manage dependencies:
+It's recommended to use a virtual environment to manage dependencies:
 
 ```bash
 python3 -m venv .venv
@@ -82,6 +82,12 @@ Creates an AWS OpenShift cluster using the provided cluster_name.
 
 **/create-openstack-vm <name> <image> <flavor> <network>**
 Creates an OpenStack VM with the specified name, image, flavor, and network.
+
+**/aws-modify-vm --stop --vm-id=<instance_id>**
+Stops a specific AWS EC2 instance by its instance ID. The instance can be restarted later.
+
+**/aws-modify-vm --delete --vm-id=<instance_id>**
+Deletes a specific AWS EC2 instance by its instance ID.
 
 **/hello**
 Greets the user with a friendly message.
