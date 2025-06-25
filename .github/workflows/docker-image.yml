@@ -1,19 +1,39 @@
-# first attempt
+# second attempt
 name: Docker Image CI
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
 
-  build:
+  build-and-push:
 
     runs-on: ubuntu-latest
 
+    env:
+      MAJOR_VERSION: 1
+      MINOR_VERSION: 1
+      PATCH_VERSION: 0
+
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Generate the version number
+      id: version
+      run: |
+        echo "VERSION=${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}" >> $GITHUB_ENV
+        echo "Computed version: $VERSION" 
+
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      #run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      run: |
+        IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.VERSION }}
+        # docker build -t $IMAGE_NAME .
+        echo "IMAGE_NAME=$IMAGE_NAME"
+
+    - name: Push Docker image
+      run: |
+        # docker push $IMAGE_NAME
+        echo "Pushed $IMAGE_NAME"
