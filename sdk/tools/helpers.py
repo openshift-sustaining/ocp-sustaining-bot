@@ -6,9 +6,11 @@ logger = logging.getLogger(__name__)
 
 def get_dict_of_command_parameters(command_line: str) -> dict:
     """
-    Given the command_line e.g. list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped
-    Parse the parameters and return a dictionary of parameters and a list of associated values if present else {}
-       For example, {'state': 'pending,stopped', 'type': 't3.micro,t2.micro'}
+    Given the command_line e.g. list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped --stop
+    Parse the parameters and return a dictionary of parameters and values/flags:
+    - Parameters with values are stored as key-value pairs: {'state': 'pending,stopped', 'type': 't3.micro,t2.micro'}
+    - Flag parameters (without values) are stored as key-boolean pairs: {'stop': True}
+    Returns empty dict {} if no parameters found.
     """
     if not isinstance(command_line, str):
         return {}
@@ -44,10 +46,17 @@ def get_dict_of_command_parameters(command_line: str) -> dict:
                     value = args[i + 1]
                     i += 1  # Skip next token since it's a value
                 key = key.strip()
-                if len(key) > 0 and value not in (None, ""):
-                    parsed_params[key] = (
-                        value.strip() if isinstance(value, str) else str(value).strip()
-                    )
+                if len(key) > 0:
+                    if value not in (None, ""):
+                        # Parameter with value
+                        parsed_params[key] = (
+                            value.strip()
+                            if isinstance(value, str)
+                            else str(value).strip()
+                        )
+                    else:
+                        # Flag parameter without value (e.g., --stop, --delete)
+                        parsed_params[key] = True
             i += 1
     except Exception as e:
         logger.error(f"Error parsing command line: {e}")
