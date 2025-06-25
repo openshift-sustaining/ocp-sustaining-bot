@@ -25,6 +25,8 @@ jobs:
         echo "REGEX : $REGEX"
         #PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$' |wc -l|awk '{print $1}')
         #PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^1\.1\.\d+$' |wc -l|awk '{print $1}')
+        WIP=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[].name'
+        echo "WIP is $WIP"
         PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[].name'| grep -E '^1\.1\.\d+$' |wc -l|awk '{print $1}')
         echo "Patch version before : $PATCH_VERSION"
         if [ $PATCH_VERSION -ne 0 ]
