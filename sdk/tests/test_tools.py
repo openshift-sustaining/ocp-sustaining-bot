@@ -62,11 +62,6 @@ def test_get_dict_of_command_parameters_when_value_has_spaces():
     assert "pending" == params_dict.get("state")
 
 
-def test_get_dict_of_command_parameters_when_missing_value():
-    params_dict = get_dict_of_command_parameters("list-aws-vms --type")
-    assert "type" not in params_dict
-
-
 def test_get_dict_when_command_has_extra_spaces():
     params_dict = get_dict_of_command_parameters(
         "create-aws-vm   --os_name=linux    --instance_type=t2.micro  --key_pair=my-key"
@@ -92,6 +87,28 @@ def test_get_dict_when_trailing_commas_between_params():
         "create-aws-vm --state=pending,,, stopped,,,, "
     )
     assert "pending,stopped" == params_dict.get("state")
+
+
+def test_get_dict_with_flag_parameters():
+    params_dict = get_dict_of_command_parameters(
+        "aws-modify-vm --stop --vm-id=i-123456"
+    )
+    assert params_dict.get("stop") is True
+    assert params_dict.get("vm-id") == "i-123456"
+
+
+def test_get_dict_with_multiple_flag_parameters():
+    params_dict = get_dict_of_command_parameters("command --flag1 --flag2 --value=test")
+    assert params_dict.get("flag1") is True
+    assert params_dict.get("flag2") is True
+    assert params_dict.get("value") == "test"
+
+
+def test_get_dict_with_only_flag_parameters():
+    params_dict = get_dict_of_command_parameters("command --stop --delete")
+    assert params_dict.get("stop") is True
+    assert params_dict.get("delete") is True
+    assert len(params_dict) == 2
 
 
 def test_get_values_for_key_from_dict_of_parameters_when_empty_dict():
