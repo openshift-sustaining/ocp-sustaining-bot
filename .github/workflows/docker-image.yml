@@ -1,4 +1,4 @@
-# 25th June 18:21
+# 25th June 18:29
 name: Docker Image CI
 
 on:
@@ -22,6 +22,7 @@ jobs:
     - name: Get Patch Version
       run: |
         PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$' |wc -l|awk '{print $1}')
+        PATCH_VERSION=$((PATCH_VERSION+1))
         echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
         echo "Patch version : $PATCH_VERSION"
 
