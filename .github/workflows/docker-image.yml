@@ -22,7 +22,7 @@ jobs:
     - name: Get Patch Version
       run: |
         REGEX="^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$"
-        echo REGEX : $REGEX"
+        echo "REGEX : $REGEX"
         #PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$' |wc -l|awk '{print $1}')
         PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '${{ REGEX }}' |wc -l|awk '{print $1}')
         echo "Patch version before : $PATCH_VERSION"
