@@ -35,7 +35,7 @@ jobs:
         #fi
         #echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
         #echo "Patch version : $PATCH_VERSION"
-        IMAGE_VERSION = $(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"|jq -r '[.[] | select((has("expiration") | not) and (.name | test("^1\\.1\\.\\d+$"))) | .name | split(".") | map(tonumber)]| max_by(.[2])| .[2] += 1| "\(.[0]).\(.[1]).\(.[2])"')
+        IMAGE_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"|jq -r '.tags | map(.name)| map(select(startswith("1.1.") and test("^1\\.1\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "1.1.\(.)"') 
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION" 
 
