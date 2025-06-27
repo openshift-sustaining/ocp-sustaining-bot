@@ -4,15 +4,17 @@ name: Docker Image CI V2
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Deployment environment'
+      QUAY_REGISTRY_USERNAME:
+        description: 'Quay Username for docker login'
         required: true
-        default: 'staging'
+        type: string
+      QUAY_REGISTRY_PASSWORD:
+        description: 'Quay PW for docker login'
+        type: string
+        required: true
 
 jobs:
-
   build-and-push:
-
     runs-on: ubuntu-latest
 
     env:
@@ -33,15 +35,13 @@ jobs:
             IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.DEFAULT_PATCH_VERSION }}"
         else
             echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}"
-            #COUNT_EXISTING=$((COUNT_EXISTING + 1))
             IMAGE_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"')
-            #IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.$COUNT_EXISTING"
         fi        
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
 
     - name: Log in to Docker registry
-      run: echo "${{ secrets.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_REGISTRY_USERNAME }}" --password-stdin
+      run: echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
 
     - name: Build the Docker image
       run: |
