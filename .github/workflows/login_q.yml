@@ -16,14 +16,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Login to quay.io securely without leaking password
+    - name: Secure Docker login without password leak
       shell: bash
       run: |
-        PASSWORD="$(echo '${{ github.event.inputs.quay_registry_password }}')"
+        PASSWORD="$(printf '%s' "${{ github.event.inputs.quay_registry_password }}")"
         USERNAME="${{ github.event.inputs.quay_registry_username }}"
-        
+    
         echo "::add-mask::$PASSWORD"
         echo "$PASSWORD" | docker login quay.io -u "$USERNAME" --password-stdin
+      
+
+#    - name: Login to quay.io securely without leaking password
+#      shell: bash
+#      run: |
+#        PASSWORD="$(echo '${{ github.event.inputs.quay_registry_password }}')"
+#        USERNAME="${{ github.event.inputs.quay_registry_username }}"
+#
+#        echo "::add-mask::$PASSWORD"
+#        echo "$PASSWORD" | docker login quay.io -u "$USERNAME" --password-stdin
 
 #      - name: Login to quay.io securely
 #        shell: bash
