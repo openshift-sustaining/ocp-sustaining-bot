@@ -1,9 +1,9 @@
 # 25th June 18:34
 name: Docker Image CI
 
-on:
-  push:
-    branches: [ "main" ]
+#on:
+#  push:
+#    branches: [ "main" ]
 
 jobs:
 
@@ -14,6 +14,7 @@ jobs:
     env:
       MAJOR_VERSION: 1
       MINOR_VERSION: 1
+      DEFAULT_PATCH_VERSION: 0
 
     steps:
     - name: Checkout code
@@ -21,23 +22,14 @@ jobs:
 
     - name: Get Patch Version
       run: |
-        #REGEX="^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$"
-        #echo "REGEX : $REGEX"
-        #PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^${{ env.MAJOR_VERSION }}\.${{ env.MINOR_VERSION }}\.\d+$' |wc -l|awk '{print $1}')
-        #PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[] | select(.expiration == null) | .name'| grep -E '^1\.1\.\d+$' |wc -l|awk '{print $1}')
-        #WIP=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[].name')
-        echo "WIP is $WIP"
-        #PATCH_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"| jq -r '.tags[].name'| grep -E '^1\.1\.\d+$' |wc -l|awk '{print $1}')
-        #echo "Patch version before : $PATCH_VERSION"
-        #if [ $PATCH_VERSION -ne 0 ]
-        #then
-        #  PATCH_VERSION=$((PATCH_VERSION+1))
-        #fi
-        #echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
-        #echo "Patch version : $PATCH_VERSION"
-        IMAGE_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"|jq -r '.tags | map(.name)| map(select(startswith("1.1.") and test("^1\\.1\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "1.1.\(.)"') 
+        IMAGE_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/" |
+        jq -r '.tags | map(.name)| map(select(startswith("1.1.") and test("^1\\.1\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "1.1.\(.)"')
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
-        echo "Computed image version: $IMAGE_VERSION" 
+      continue-on-error: |
+        IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.DEFAULT_PATCH_VERSION }}"
+        echo "Could not determine the patch version using existing image information - defaults will be used"
+        echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
+      echo "Computed image version: $IMAGE_VERSION"
 
 
 #    - name: Generate the version number from the major version, minor version and patch version
