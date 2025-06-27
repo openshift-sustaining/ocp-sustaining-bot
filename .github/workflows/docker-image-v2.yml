@@ -51,14 +51,25 @@ jobs:
 #        #echo "TEMP_SECRET=$TEMP_SECRET" >> $GITHUB_ENV
 
 
+#    - name: Log in to Docker registry
+#      env:
+#        PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
+#      run: |
+#        echo "::add-mask::$PASSWORD"
+#        TEMP_SECRET="${{ env.$PASSWORD }}"
+#        echo "$TEMP_SECRET" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+#        #echo "${{ env.$PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+
     - name: Log in to Docker registry
       env:
         PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
+      #run: echo "${{ env.TEMP_SECRET }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin > /dev/null
+      #run: echo "${{ secrets.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_REGISTRY_USERNAME }}" --password-stdin
       run: |
         echo "::add-mask::$PASSWORD"
-        TEMP_SECRET="${{ env.$PASSWORD }}"
+        TEMP_SECRET="$PASSWORD"
         echo "$TEMP_SECRET" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
-        #echo "${{ env.$PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+
 
     - name: Build the Docker image
       run: |
