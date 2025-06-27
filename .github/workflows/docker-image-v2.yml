@@ -111,14 +111,23 @@ jobs:
 #        INPUT_USERNAME: ${{ inputs.QUAY_REGISTRY_USERNAME }}
 #        INPUT_PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
 
-    - name: Docker login without leaking password
-      shell: bash
+#    - name: Docker login without leaking password
+#      shell: bash
+#      run: |
+#        QUAY_USERNAME="${{ inputs.QUAY_REGISTRY_USERNAME }}"
+#        QUAY_PASSWORD="$(echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" )" # subshell prevents logging
+#        echo "::add-mask::$QUAY_PASSWORD"
+#        echo "$QUAY_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
+
+
+    - name: Docker login using inputs securely
       run: |
-        QUAY_USERNAME="${{ inputs.QUAY_REGISTRY_USERNAME }}"
-        QUAY_PASSWORD="$(echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" )" # subshell prevents logging
-        echo "::add-mask::$QUAY_PASSWORD"
-        echo "$QUAY_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
-    
+        echo "::add-mask::$QUAY_REGISTRY_PASSWORD"
+        echo "$QUAY_REGISTRY_PASSWORD" | docker login quay.io -u "$QUAY_REGISTRY_USERNAME" --password-stdin
+      env:
+        QUAY_REGISTRY_USERNAME: ${{ inputs.QUAY_REGISTRY_USERNAME }}
+        QUAY_REGISTRY_PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
+
 
 
 
