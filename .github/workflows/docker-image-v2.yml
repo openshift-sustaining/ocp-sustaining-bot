@@ -29,22 +29,16 @@ jobs:
         JSON_RESPONSE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/")
         COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name | startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}"))| length')
         if [ "$COUNT_EXISTING" -eq 0 ]; then
-            echo "COUNT_EXISTING is zero"
+            echo "There are no docker images with version numbers that start with ${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}."
             IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.DEFAULT_PATCH_VERSION }}"
         else
+            COUNT_EXISTING=$((COUNT_EXISTING + 1))
             echo "COUNT_EXISTING is not zero (value: $COUNT_EXISTING)"
-            IMAGE_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"')
+            #IMAGE_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"')
+            IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.$COUNT_EXISTING"
         fi        
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
- 
-
-#    - name: Generate the version number from the major version, minor version and patch version
-#      id: version
-#      run: |
-#        IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}"
-#        echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
-#        echo "Computed image version: $IMAGE_VERSION"
 
     - name: Log in to Docker registry
       run: echo "${{ secrets.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_REGISTRY_USERNAME }}" --password-stdin
@@ -54,10 +48,10 @@ jobs:
         IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.IMAGE_VERSION }}
         echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
         echo "Building $IMAGE_NAME .."
-        docker build -t $IMAGE_NAME .
+        #docker build -t $IMAGE_NAME .
 
     - name: Push Docker image
       run: |
         echo "Pushing ${{ env.IMAGE_NAME }} .."
-        docker push ${{ env.IMAGE_NAME }} 
+        #docker push ${{ env.IMAGE_NAME }} 
         echo "Pushed ${{ env.IMAGE_NAME }}"
