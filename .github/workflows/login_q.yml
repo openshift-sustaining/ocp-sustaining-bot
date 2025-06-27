@@ -1,0 +1,22 @@
+name: Quay Login Securely
+
+on:
+  workflow_dispatch:
+    inputs:
+      quay_registry_username:
+        description: 'Quay username'
+        required: true
+      quay_registry_password:
+        description: 'Quay password'
+        required: true
+        type: password
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to quay.io securely without leaking password
+        shell: bash
+        run: |
+          echo "::add-mask::$GITHUB_INPUT_QUAY_REGISTRY_PASSWORD"
+          echo "$GITHUB_INPUT_QUAY_REGISTRY_PASSWORD" | docker login quay.io -u "$GITHUB_INPUT_QUAY_REGISTRY_USERNAME" --password-stdin
