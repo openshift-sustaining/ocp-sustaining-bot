@@ -15,10 +15,11 @@ jobs:
   login:
     runs-on: ubuntu-latest
     steps:
-      - name: Secure Docker login (no secret leakage)
+      - name: Secure Docker login (no leaks)
         shell: bash
+        env:
+          USERNAME: ${{ github.event.inputs.quay_registry_username }}
+          PASSWORD: ${{ github.event.inputs.quay_registry_password }}
         run: |
-          USERNAME="${{ github.event.inputs.quay_registry_username }}"
-          PASSWORD="$(echo '${{ github.event.inputs.quay_registry_password }}')"
           echo "::add-mask::$PASSWORD"
           echo "$PASSWORD" | docker login quay.io -u "$USERNAME" --password-stdin
