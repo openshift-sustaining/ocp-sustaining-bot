@@ -4,13 +4,11 @@ name: Docker Image CI V2
 on:
   workflow_dispatch:
     inputs:
-      QUAY_REGISTRY_USERNAME:
-        description: 'Quay Username for docker login'
+      quay_registry_username:
+        description: 'Username'
         required: true
-        type: string
-      QUAY_REGISTRY_PASSWORD:
-        description: 'Quay PW for docker login'
-        type: string
+      quay_registry_password:
+        description: 'Password'
         required: true
 
 jobs:
