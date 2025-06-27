@@ -1,4 +1,4 @@
-# 27th June 13.59
+# 27th June 14:09
 name: Docker Image CI V2
 
 on:
@@ -26,8 +26,9 @@ jobs:
 
     - name: Get Patch Version
       run: |
-        IMAGE_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/" |
-        jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"')
+        JSON_RESPONSE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/")
+        #IMAGE_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/" |
+        IMAGE_VERSION=$(jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"' $JSON_RESPONSE)
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
       continue-on-error: |
