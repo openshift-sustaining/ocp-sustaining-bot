@@ -1,4 +1,4 @@
-# 27th June 16:50
+# 27th June 16:55
 name: Docker Image CI V2
 
 on:
@@ -48,10 +48,10 @@ jobs:
         IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.IMAGE_VERSION }}
         echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
         echo "Building $IMAGE_NAME .."
-        #docker build -t $IMAGE_NAME .
+        docker build -t $IMAGE_NAME .
 
     - name: Push Docker image
       run: |
         echo "Pushing ${{ env.IMAGE_NAME }} .."
-        #docker push ${{ env.IMAGE_NAME }} 
+        docker push ${{ env.IMAGE_NAME }} 
         echo "Pushed ${{ env.IMAGE_NAME }}"
