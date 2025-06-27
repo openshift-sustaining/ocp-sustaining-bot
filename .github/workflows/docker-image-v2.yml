@@ -40,8 +40,14 @@ jobs:
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
 
+    - name: Set temporary secret
+      run: |
+        TEMP_SECRET="${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+        echo "TEMP_SECRET=$TEMP_SECRET" >> $GITHUB_ENV
+
+
     - name: Log in to Docker registry
-      run: echo "::add-mask::${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin > /dev/null
+      run: echo "${{ env.TEMP_SECRET }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin > /dev/null
       #run: echo "${{ secrets.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_REGISTRY_USERNAME }}" --password-stdin
 
     - name: Build the Docker image
@@ -56,3 +62,6 @@ jobs:
         echo "Pushing ${{ env.IMAGE_NAME }} .."
         docker push ${{ env.IMAGE_NAME }} 
         echo "Pushed ${{ env.IMAGE_NAME }}"
+
+    - name: Logout
+      run: docker logout quay.io
