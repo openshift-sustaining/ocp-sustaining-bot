@@ -1,4 +1,4 @@
-# 27th June 16:55
+# 27th June 17:07
 name: Docker Image CI V2
 
 on:
@@ -34,8 +34,8 @@ jobs:
         else
             echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}"
             #COUNT_EXISTING=$((COUNT_EXISTING + 1))
-            #IMAGE_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"')
-            IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.$COUNT_EXISTING"
+            IMAGE_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"')
+            #IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.$COUNT_EXISTING"
         fi        
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
