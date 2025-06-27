@@ -43,11 +43,12 @@ jobs:
     - name: Set temporary secret
       run: |
         TEMP_SECRET="${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+        echo "::add-mask::$TEMP_SECRET"
         echo "TEMP_SECRET=$TEMP_SECRET" >> $GITHUB_ENV
 
 
     - name: Log in to Docker registry
-      run: echo "::add-mask::${{ env.TEMP_SECRET }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin > /dev/null
+      run: echo "${{ env.TEMP_SECRET }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin > /dev/null
       #run: echo "${{ secrets.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_REGISTRY_USERNAME }}" --password-stdin
 
     - name: Build the Docker image
