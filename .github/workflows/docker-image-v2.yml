@@ -42,7 +42,8 @@ jobs:
 
     - name: Set temporary secret
       run: |
-        TEMP_SECRET="${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+        #TEMP_SECRET="${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+        TEMP_SECRET=$(cat $GITHUB_EVENT_PATH | jq -r '.inputs.QUAY_REGISTRY_USERNAME' )
         echo "::add-mask::$TEMP_SECRET"
         echo "TEMP_SECRET=$TEMP_SECRET" >> $GITHUB_ENV
 
