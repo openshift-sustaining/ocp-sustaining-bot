@@ -1,4 +1,4 @@
-# 27th June 14:12
+# 27th June 16:50
 name: Docker Image CI V2
 
 on:
@@ -27,7 +27,7 @@ jobs:
     - name: Get Patch Version
       run: |
         JSON_RESPONSE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/")
-        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}"))| length')
+        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}"))) | length')
         if [ "$COUNT_EXISTING" -eq 0 ]; then
             echo "There are no docker images with version numbers that start with ${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}."
             IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.DEFAULT_PATCH_VERSION }}"
