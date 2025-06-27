@@ -1,4 +1,4 @@
-# 27th June 17:07
+# 27th June 19:03
 name: Docker Image CI V2
 
 on:
@@ -54,8 +54,6 @@ jobs:
     - name: Log in to Docker registry
       env:
         PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
-      #run: echo "${{ env.TEMP_SECRET }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin > /dev/null
-      #run: echo "${{ secrets.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ secrets.QUAY_REGISTRY_USERNAME }}" --password-stdin
       run: |
         echo "::add-mask::$PASSWORD"
         TEMP_SECRET="$PASSWORD"
