@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      MAJOR_VERSION: 2
+      MAJOR_VERSION: 1
       MINOR_VERSION: 1
       DEFAULT_PATCH_VERSION: 0
 
@@ -27,16 +27,17 @@ jobs:
     - name: Get Patch Version
       run: |
         JSON_RESPONSE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/")
-        #IMAGE_VERSION=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/" |
-        IMAGE_VERSION=jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"' $JSON_RESPONSE
+        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name | startswith("1.0"))| length')
+        if [ "$COUNT_EXISTING" -eq 0 ]; then
+            echo "COUNT_EXISTING is zero"
+            IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.DEFAULT_PATCH_VERSION }}"
+        else
+            echo "COUNT_EXISTING is not zero (value: $COUNT_EXISTING)"
+            IMAGE_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"')
+        fi        
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
-      continue-on-error: |
-        IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.DEFAULT_PATCH_VERSION }}"
-        echo "Could not determine the patch version using existing image information - defaults will be used"
-        echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
-        echo "Default image version: $IMAGE_VERSION"
-
+ 
 
 #    - name: Generate the version number from the major version, minor version and patch version
 #      id: version
