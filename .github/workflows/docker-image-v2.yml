@@ -69,14 +69,19 @@ jobs:
 #        TEMP_SECRET="$PASSWORD"
 #        echo "$TEMP_SECRET" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
 
+    # works
+#    - name: Log in to Quay.io securely
+#      uses: docker/login-action@v3
+#      with:
+#        registry: quay.io
+#        username: ${{ inputs.QUAY_REGISTRY_USERNAME }}
+#        password: ${{ secrets.QUAY_REGISTRY_PASSWORD }}
 
-    - name: Log in to Quay.io securely
-      uses: docker/login-action@v3
-      with:
-        registry: quay.io
-        username: ${{ inputs.QUAY_REGISTRY_USERNAME }}
-        password: ${{ secrets.QUAY_REGISTRY_PASSWORD }}
 
+    - name: Secure Docker login with inputs
+      run: |
+        echo "::add-mask::${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
 
     - name: Build the Docker image
       run: |
