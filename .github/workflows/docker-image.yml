@@ -1,9 +1,13 @@
 # 25th June 18:34
 name: Docker Image CI
 
-#on:
-#  push:
-#    branches: [ "main" ]
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
 
 jobs:
 
