@@ -41,7 +41,7 @@ jobs:
         echo "Computed image version: $IMAGE_VERSION"
 
     - name: Log in to Docker registry
-      run: echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+      run: echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin > /dev/null
 
     - name: Build the Docker image
       run: |
