@@ -15,65 +15,10 @@ jobs:
   login:
     runs-on: ubuntu-latest
     steps:
-
-    - name: Login to Quay without leaking password
-      shell: bash
-      run: |
-        echo "::add-mask::$PASSWORD"
-        echo "$PASSWORD" | docker login quay.io -u "$USERNAME" --password-stdin
-      env:
-        USERNAME: ${{ github.event.inputs.quay_registry_username }}
-        PASSWORD: ${{ github.event.inputs.quay_registry_password }}
-
-
-#    - name: Secure Docker login without password leak
-#      shell: bash
-#      run: |
-#        PASSWORD="$(printf '%s' "${{ github.event.inputs.quay_registry_password }}")"
-#        USERNAME="${{ github.event.inputs.quay_registry_username }}"
-#
-#        echo "::add-mask::$PASSWORD"
-#        echo "$PASSWORD" | docker login quay.io -u "$USERNAME" --password-stdin
-      
-
-#    - name: Login to quay.io securely without leaking password
-#      shell: bash
-#      run: |
-#        PASSWORD="$(echo '${{ github.event.inputs.quay_registry_password }}')"
-#        USERNAME="${{ github.event.inputs.quay_registry_username }}"
-#
-#        echo "::add-mask::$PASSWORD"
-#        echo "$PASSWORD" | docker login quay.io -u "$USERNAME" --password-stdin
-
-#      - name: Login to quay.io securely
-#        shell: bash
-#        env:
-#          QUAY_USERNAME: ${{ github.event.inputs.quay_registry_username }}
-#          QUAY_PASSWORD: ${{ github.event.inputs.quay_registry_password }}
-#        run: |
-#          echo "::add-mask::$QUAY_PASSWORD"
-#          echo "$QUAY_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
-      
-      
-
-#      - name: Login to quay.io securely without leaking password
-#        shell: bash
-#        run: |
-#          echo "::add-mask::${{ github.event.inputs.quay_registry_password }}"
-#          echo "${{ github.event.inputs.quay_registry_password }}" | docker login quay.io -u "${{ github.event.inputs.quay_registry_username }}" --password-stdin
-#
-
-#      - name: Debug raw inputs
-#        run: |
-#          `echo "Raw inputs: ${{ toJson(github.event.inputs) }}"`
-#
-#      - name: Debug input environment variables
-#        run: |
-#          echo "Username: $GITHUB_INPUT_QUAY_REGISTRY_USERNAME"
-#          echo "Password length: ${#GITHUB_INPUT_QUAY_REGISTRY_PASSWORD}"
-#
-#      - name: Login to quay.io securely without leaking password
-#        shell: bash
-#        run: |
-#          echo "::add-mask::$GITHUB_INPUT_QUAY_REGISTRY_PASSWORD"
-#          echo "$GITHUB_INPUT_QUAY_REGISTRY_PASSWORD" | docker login quay.io -u "$GITHUB_INPUT_QUAY_REGISTRY_USERNAME" --password-stdin
+      - name: Secure Docker login (no secret leakage)
+        shell: bash
+        run: |
+          USERNAME="${{ github.event.inputs.quay_registry_username }}"
+          PASSWORD="$(echo '${{ github.event.inputs.quay_registry_password }}')"
+          echo "::add-mask::$PASSWORD"
+          echo "$PASSWORD" | docker login quay.io -u "$USERNAME" --password-stdin
