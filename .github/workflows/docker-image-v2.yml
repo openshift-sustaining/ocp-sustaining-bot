@@ -27,7 +27,7 @@ jobs:
     - name: Get Patch Version
       run: |
         JSON_RESPONSE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/")
-        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name | startswith("1.0"))| length')
+        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name | startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}"))| length')
         if [ "$COUNT_EXISTING" -eq 0 ]; then
             echo "COUNT_EXISTING is zero"
             IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.DEFAULT_PATCH_VERSION }}"
