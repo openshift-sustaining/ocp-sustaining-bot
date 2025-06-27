@@ -82,17 +82,25 @@ jobs:
 #      run: |
 #        echo "::add-mask::${{ inputs.QUAY_REGISTRY_PASSWORD }}"
 #        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+#
+#    - name: Secure Docker login
+#      shell: bash
+#      run: |
+#        TEMP_PASSWORD="${QUAY_PASSWORD}"
+#        echo "::add-mask::$TEMP_PASSWORD"
+#        echo "$TEMP_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
+#      env:
+#        QUAY_USERNAME: ${{ inputs.QUAY_REGISTRY_USERNAME }}
+#        QUAY_PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
 
-    - name: Secure Docker login
+
+    - name: Secure Docker login with inputs (no leak)
       shell: bash
       run: |
-        TEMP_PASSWORD="${QUAY_PASSWORD}"
-        echo "::add-mask::$TEMP_PASSWORD"
-        echo "$TEMP_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
-      env:
-        QUAY_USERNAME: ${{ inputs.QUAY_REGISTRY_USERNAME }}
-        QUAY_PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
-
+        QUAY_USERNAME="${{ inputs.QUAY_REGISTRY_USERNAME }}"
+        QUAY_PASSWORD="${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+        echo "::add-mask::$QUAY_PASSWORD"
+        echo "$QUAY_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
 
 
     - name: Build the Docker image
