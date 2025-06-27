@@ -15,6 +15,10 @@ jobs:
   login:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug raw inputs
+        run: |
+          `echo "Raw inputs: ${{ toJson(github.event.inputs) }}"`       
+          
       - name: Debug input environment variables
         run: |
           echo "Username: $GITHUB_INPUT_QUAY_REGISTRY_USERNAME"
