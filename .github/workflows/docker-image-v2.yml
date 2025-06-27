@@ -1,4 +1,4 @@
-# 27th June 13.56
+# 27th June 13.59
 name: Docker Image CI V2
 
 on:
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      MAJOR_VERSION: 1
+      MAJOR_VERSION: 2
       MINOR_VERSION: 1
       DEFAULT_PATCH_VERSION: 0
 
