@@ -81,7 +81,7 @@ jobs:
     - name: Secure Docker login with inputs
       run: |
         echo "::add-mask::${{ inputs.QUAY_REGISTRY_PASSWORD }}"
-        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login -u quay.io "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
 
     - name: Build the Docker image
       run: |
