@@ -22,6 +22,7 @@ required_keys = [
     "ALLOWED_SLACK_USERS",
 ]
 
+# Load CA Cert to avoid SSL errors
 load_dotenv()
 ca_bundle_file = tempfile.NamedTemporaryFile()
 with open(ca_bundle_file.name, "w") as f:
