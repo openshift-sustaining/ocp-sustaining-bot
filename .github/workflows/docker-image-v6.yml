@@ -40,7 +40,7 @@ jobs:
     - name: Docker login
       shell: bash
       run: |
-        echo "${{ inputs.QUAY_REGISTRY_USERNAME }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_PASSWORD }}" --password-stdin
+        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
 
     - name: Build the Docker image
       run: |
