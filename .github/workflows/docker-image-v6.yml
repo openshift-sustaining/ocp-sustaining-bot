@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1530
+name: Create Docker Image CI V6 1718
 
 on:
   workflow_dispatch:
@@ -10,7 +10,6 @@ on:
         description: 'Password'
         required: true
 
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -19,6 +18,7 @@ jobs:
       MAJOR_VERSION: 1
       MINOR_VERSION: 1
       DEFAULT_PATCH_VERSION: 0
+      URL_SLACK_BACKEND_API: "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"
 
     steps:
     - name: Checkout code
@@ -26,7 +26,8 @@ jobs:
 
     - name: Get Patch Version
       run: |
-        JSON_RESPONSE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/")
+        #JSON_RESPONSE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/")
+        JSON_RESPONSE=$(curl -s "$URL_SLACK_BACKEND_API")
         COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}"))) | length')
         if [ "$COUNT_EXISTING" -eq 0 ]; then
             echo "There are no docker images with version numbers that start with ${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}."
@@ -38,17 +39,14 @@ jobs:
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
 
-    - name: Mask Values and login
+    - name: Mask Values etc
       shell: bash
       run: |
         QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
         echo ::add-mask::$QUAY_PASSWORD
         QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
         echo ::add-mask::QUAY_USERNAME
-        #echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
-        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin
-        cat /home/runner/.docker/config.json
-  
+        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
 
     - name: Build the Docker image
       run: |
