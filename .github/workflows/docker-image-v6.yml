@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1332
+name: Create Docker Image CI V6 1334
 
 on:
   workflow_dispatch:
@@ -42,7 +42,7 @@ jobs:
       shell: bash
       run: |
         EVENT_PATH = Get-Content -Encoding UTF8 -Path $env:GITHUB_EVENT_PATH -Raw | ConvertFrom-Json
-        echo "Test1 : EVENT_PATH" 
+        echo "Test1 : $EVENT_PATH" 
         echo "Test: ${{ github.event.inputs.quay_registry_username }}"
         CMD_LINE="-u ${{ inputs.QUAY_REGISTRY_USERNAME }} -p ${{ inputs.QUAY_REGISTRY_PASSWORD }}"
         echo "::add-mask::CMD_LINE"
