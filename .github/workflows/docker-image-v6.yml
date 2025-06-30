@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1424
+name: Create Docker Image CI V6 1450
 
 on:
   workflow_dispatch:
@@ -43,31 +43,15 @@ jobs:
       run: |
         QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
         echo ::add-mask::$QUAY_PASSWORD
-        echo "After mask : $QUAY_PASSWORD"
+        #echo "After mask : $QUAY_PASSWORD"
         
         QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
         echo ::add-mask::QUAY_USERNAME
-        echo "After mask : QUAY_USERNAME"    
+        #echo "After mask : QUAY_USERNAME"    
         
-        docker login quay.io -u $QUAY_USERNAME -p $QUAY_PASSWORD  2>/dev/null
-        
-#        TEMPUSER=${{ github.event.inputs.quay_registry_username }}
-#        echo "Before mask : $TEMPUSER"
-#        echo "::add-mask::TEMPUSER"
-#        echo "This should be masked: $TEMPUSER"
-#        TEMPTTOK=${{ github.event.inputs.quay_registry_password }}
-#        echo "::add-mask::$TEMPTTOK"
-#        echo "This should be masked: $TEMPTTOK"
-#
-#        CMD_LINE="-u ${{ inputs.QUAY_REGISTRY_USERNAME }} -p ${{ inputs.QUAY_REGISTRY_PASSWORD }}"
-
-
-#    - name: Docker login
-#      shell: bash
-#      run: |
-#        docker login quay.io -u ${{ inputs.QUAY_REGISTRY_USERNAME }} -p ${{ inputs.QUAY_REGISTRY_PASSWORD }}  2>/dev/null
-
-               
+        #docker login quay.io -u $QUAY_USERNAME -p $QUAY_PASSWORD  2>/dev/null
+        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin
+  
 
     - name: Build the Docker image
       run: |
