@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1514
+name: Create Docker Image CI V6 1524
 
 on:
   workflow_dispatch:
@@ -45,7 +45,8 @@ jobs:
         echo ::add-mask::$QUAY_PASSWORD
         QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
         echo ::add-mask::QUAY_USERNAME
-        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
+        #echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
+        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin
 
   
 
