@@ -54,7 +54,8 @@ jobs:
         SWA_DEPLOYMENT_SEC=${{ inputs.QUAY_REGISTRY_USERNAME }}
         echo "::add-mask::SWA_DEPLOYMENT_USER"
         echo "::add-mask::SWA_DEPLOYMENT_SEC"
-        echo "$SWA_DEPLOYMENT_SEC" | docker login quay.io -u $SWA_DEPLOYMENT_USER --password-stdin
+        #echo "$SWA_DEPLOYMENT_SEC" | docker login quay.io -u $SWA_DEPLOYMENT_USER --password-stdin
+        echo $SWA_DEPLOYMENT_SEC | docker login quay.io -u $SWA_DEPLOYMENT_USER --password-stdin
 
     - name: Build the Docker image
       run: |
