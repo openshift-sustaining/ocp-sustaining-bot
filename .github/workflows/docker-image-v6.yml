@@ -37,24 +37,34 @@ jobs:
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
 
+    - name: Store stuff
+      shell: bash
+      run: |
+        SWA_DEPLOYMENT_TOKEN="test"
+        echo "::add-mask::$SWA_DEPLOYMENT_TOKEN"
+        SWA_DEPLOYMENT_TOKEN=${{ inputs.QUAY_REGISTRY_USERNAME }}
+        echo "::add-mask::$SWA_DEPLOYMENT_TOKEN"
+        #echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "$SWA_DEPLOYMENT_TOKEN" --password-stdin
+        echo SWA_DEPLOYMENT_TOKEN=$SWA_DEPLOYMENT_TOKEN >> $GITHUB_ENV 
+
     - name: Docker login
       shell: bash
       run: |
         SWA_DEPLOYMENT_TOKEN=${{ inputs.QUAY_REGISTRY_USERNAME }}
         echo "::add-mask::$SWA_DEPLOYMENT_TOKEN"
-        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "$SWA_DEPLOYMENT_TOKEN" --password-stdin
+        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u ${{ inputs.QUAY_REGISTRY_USERNAME }} --password-stdin
 
     - name: Build the Docker image
       run: |
         IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.IMAGE_VERSION }}
         echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
         echo "Building $IMAGE_NAME .."
-        docker build -t $IMAGE_NAME .
+        #docker build -t $IMAGE_NAME .
 
     - name: Push Docker image
       run: |
         echo "Pushing ${{ env.IMAGE_NAME }} .."
-        docker push ${{ env.IMAGE_NAME }} 
+        #docker push ${{ env.IMAGE_NAME }} 
         echo "Pushed ${{ env.IMAGE_NAME }}"
 
     - name: Logout
