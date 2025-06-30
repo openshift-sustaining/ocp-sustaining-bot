@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1742
+name: Create Slackbot Docker Image
 
 on:
   workflow_dispatch:
@@ -25,10 +25,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # set up the next tag name for the Docker Image
-    # e.g. if there are 24 previous images starting with the tag name "1.1." and none have been deleted,  
-    # the next tag name will be 1.1.25
     - name: Get Next Tag Version
+      # set up the next tag name for the Docker Image
+      # e.g. if there are 24 previous images starting with the tag name "1.1." and none have been deleted,
+      # the next tag name will be 1.1.25
       run: |
         JSON_RESPONSE=$(curl -s "$URL_SLACK_BACKEND_API")
         COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ env.TAG_MAJOR_VERSION }}.${{ env.TAG_MINOR_VERSION }}"))) | length')
