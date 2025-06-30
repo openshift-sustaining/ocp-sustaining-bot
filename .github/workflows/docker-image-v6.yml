@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1718
+name: Create Docker Image CI V6 1723
 
 on:
   workflow_dispatch:
@@ -39,7 +39,14 @@ jobs:
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
 
-    - name: Mask Values etc
+    - name: Build the Docker image
+      run: |
+        IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.IMAGE_VERSION }}
+        echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+        echo "Building $IMAGE_NAME .."
+        docker build -t $IMAGE_NAME .
+
+    - name: Mask Values and Login
       shell: bash
       run: |
         QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
@@ -48,21 +55,12 @@ jobs:
         echo ::add-mask::QUAY_USERNAME
         echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
 
-    - name: Build the Docker image
-      run: |
-        IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.IMAGE_VERSION }}
-        echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-        echo "Building $IMAGE_NAME .."
-        #docker build -t $IMAGE_NAME .
-
     - name: Push Docker image
       run: |
         echo "Pushing ${{ env.IMAGE_NAME }} .."
-        #docker push ${{ env.IMAGE_NAME }} 
+        docker push ${{ env.IMAGE_NAME }} 
         echo "Pushed ${{ env.IMAGE_NAME }}"
 
     - name: Logout
       run: |
         docker logout quay.io
-        cat /home/runner/.docker/config.json
-
