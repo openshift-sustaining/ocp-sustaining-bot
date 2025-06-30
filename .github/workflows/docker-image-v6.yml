@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1349
+name: Create Docker Image CI V6 1354
 
 on:
   workflow_dispatch:
@@ -41,12 +41,14 @@ jobs:
     - name: Mask Values
       shell: bash
       run: |
+        TEMPUSER=${github.event.inputs.quay_registry_username}
+        echo "Before mask : $TEMPUSER"
+        echo "::add-mask::TEMPUSER"
+        echo "This should be masked: $TEMPUSER"        
         TEMPTTOK=$github.event.inputs.quay_registry_password
         echo "::add-mask::$TEMPTTOK"
         echo "This should be masked: $TEMPTTOK"
-        TEMPUSER=$github.event.inputs.quay_registry_username
-        echo "::add-mask::$TEMPTTOK"
-        echo "This should be masked: $TEMPUSER"
+        
         CMD_LINE="-u ${{ inputs.QUAY_REGISTRY_USERNAME }} -p ${{ inputs.QUAY_REGISTRY_PASSWORD }}"
 
 
