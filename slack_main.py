@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 app = App(token=config.SLACK_BOT_TOKEN)
 
 try:
-    ALLOWED_SLACK_USERS = json.loads(config.ALLOWED_SLACK_USERS)
+    ALLOWED_SLACK_USERS = config.ALLOWED_SLACK_USERS
 except json.JSONDecodeError:
     logging.error("ALLOWED_SLACK_USERS must be a valid JSON string.")
     sys.exit(1)
@@ -64,7 +64,11 @@ def mention_handler(body, say):
             "list-openstack-vms": lambda: handle_list_openstack_vms(say, command_line),
             "hello": lambda: handle_hello(say, user),
             "create-aws-vm": lambda: handle_create_aws_vm(
-                say, user, region, command_line
+                say,
+                user,
+                region,
+                command_line,
+                app,  # pass `app` so that bot can send DM to users
             ),
             "list-aws-vms": lambda: handle_list_aws_vms(
                 say, region, user, command_line

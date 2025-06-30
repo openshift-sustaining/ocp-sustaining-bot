@@ -1,9 +1,12 @@
 from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
 from sdk.tools.helpers import get_dict_of_command_parameters
+from config import config
 import logging
 import traceback
 
+
+#
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +24,7 @@ def handle_help(say, user):
             "`list-team-links` - Display important team links.\n"
             "`create-openstack-vm <name> <image> <flavor> <network>` - Create an OpenStack VM.\n"
             "`list-openstack-vms [--status=active,shutoff]` : List OpenStack VMs optionally filtered by status.\n"
-            "`create-aws-vm <os_name> <instance_type> <key_pair>` - Create an AWS EC2 instance.\n"
+            "`create-aws-vm <os_name> <instance_type> <key_pair=new,existing>` - Create an AWS EC2 instance.\n"
             "`list-aws-vms [--state=pending,running,stopped]` : List AWS VMs optionally filtered by state.\n"
         )
 
@@ -30,14 +33,111 @@ def handle_help(say, user):
 
 
 # Helper function to handle creating an OpenStack VM
-def handle_create_openstack_vm(say, user, text):
+def handle_create_openstack_vm(say, user, command_line):
     try:
-        args = text.replace("create-openstack-vm", "").strip().split()
-        os_helper = OpenStackHelper()
-        os_helper.create_vm(args)
+        command_params = get_dict_of_command_parameters(command_line)
+
+        # Extract key params from command
+        name = command_params.get("name")
+        os_name = command_params.get("os_name")
+        flavor = command_params.get("flavor")
+        key_name = command_params.get("key_name")
+
+        logger.info(
+            f"Parsed Parameters: name={name}, os_name={os_name}, flavor={flavor}, key_name={key_name}"
+        )
+
+        # Validate required fields
+        required_params = ["name", "os_name", "flavor", "key_name"]
+        missing_params = [
+            param for param in required_params if not command_params.get(param)
+        ]
+
+        if missing_params:
+            say(
+                f":warning: Missing required parameters: {', '.join(missing_params)}. "
+                f"Usage: create-openstack-vm --name=<name> --os_name=<os_name> --flavor=<flavor> --key_name=<key>\n"
+                f"Supported OS names: {', '.join(config.OS_IMAGE_MAP.keys())}"
+            )
+            return
+
+        # Normalize OS name and retrieve corresponding image ID
+        os_name_lower = os_name.strip().lower()
+        image_id = config.OS_IMAGE_MAP.get(os_name_lower)
+
+        if not image_id:
+            say(
+                f":x: Unsupported OS name: `{os_name}`. "
+                f"Supported OS names: {', '.join(config.OS_IMAGE_MAP.keys())}"
+            )
+            return
+
+        # Resolve network ID using default network name
+        network_id = config.OS_NETWORK_MAP.get(config.OS_DEFAULT_NETWORK)
+        if not network_id:
+            say(
+                ":x: No valid network ID found for the default network. Please check configuration."
+            )
+            logger.error(
+                f"Missing network ID for default network: {config.OS_DEFAULT_NETWORK}"
+            )
+            return
+
+        logger.info(f"Using Image ID: {image_id} and Network ID: {network_id}")
+
+        say(
+            ":hourglass_flowing_sand: Now processing your request for an OpenStack VM... Please wait."
+        )
+        openstack_helper = OpenStackHelper()
+        response = openstack_helper.create_servers(
+            name, image_id, flavor, key_name, network_id
+        )
+
+        # Extract result from response
+        instances = response.get("instances", [])
+        if instances:
+            instance_info = instances[0]
+
+            say(":white_check_mark: *Successfully created OpenStack VM!*\n")
+
+            # Format and display instance metadata as table
+            print_keys = [
+                "name",
+                "server_id",
+                "key_name",
+                "flavor",
+                "network",
+                "status",
+                "private_ip",
+            ]
+            block_message = "Here are the details of your new OpenStack VM:"
+            helper_display_dict_output_as_table(
+                {"instances": [instance_info]}, print_keys, say, block_message
+            )
+
+            # Provide SSH access instructions for user
+            say(
+                f"\n\n"
+                ":key: *Access Instructions (Linux/Unix):*\n"
+                "Use the following command to SSH into your instance:\n"
+                f"`ssh -i <path_to_your_private_key.pem> {config.OS_DEFAULT_SSH_USER}@{instance_info.get('private_ip', '<Private_IP>')}`\n"
+                "Make sure your key file has the correct permissions: `chmod 400 <path_to_your_private_key.pem>`\n"
+                "\n\n"
+                ":warning: *Key Pair Access:*\n"
+                f"To access this instance via SSH, you should have the `{instance_info.get('key_name', config.OS_DEFAULT_KEY_NAME)}` private key.\n"
+                "If you don't have it, please contact the admin for access."
+            )
+
+        else:
+            say(":x: VM creation failed. No instance details returned.")
+            logger.error(f"OpenStack VM creation failed: {response}")
+
     except Exception as e:
-        logger.error(f"An error occurred creating the openstack VM : {e}")
-        say("An internal error occurred, please contact administrator.")
+        logger.error(f"Error during OpenStack VM creation: {e}")
+        logger.error(traceback.format_exc())
+        say(
+            ":x: An internal error occurred while creating the OpenStack VM. Please contact the administrator."
+        )
 
 
 # Helper function to list OpenStack VMs with error handling
@@ -47,7 +147,7 @@ def handle_list_openstack_vms(say, command_line=""):
         params_dict = get_dict_of_command_parameters(command_line)
 
         # Define valid status filters
-        VALID_STATUSES = {"ACTIVE", "SHUTOFF"}
+        VALID_STATUSES = {"ACTIVE", "SHUTOFF", "ERROR"}
         # Default to ACTIVE if no status filter provided
         status_filter = params_dict.get("status", "ACTIVE").upper()
 
@@ -81,7 +181,7 @@ def handle_list_openstack_vms(say, command_line=""):
                 "name",
                 "flavor",
                 "network",
-                "public_ip",
+                "private_ip",
                 "key_name",
                 "status",
             ]
@@ -105,7 +205,7 @@ def handle_hello(say, user):
     say(f"Hello <@{user}>! How can I assist you today?")
 
 
-def handle_create_aws_vm(say, user, region, command_line):
+def handle_create_aws_vm(say, user, region, command_line, app):
     try:
         # Parse the command parameters
         command_params = get_dict_of_command_parameters(command_line)
@@ -134,6 +234,12 @@ def handle_create_aws_vm(say, user, region, command_line):
             )
             return
 
+        # Key pair should be either 'new' or 'existing'
+        key_pair = key_pair.strip().lower()
+        if key_pair not in {"new", "existing"}:
+            say(":warning: `key_pair` should be either `new` or `existing`")
+            return
+
         # Ensure os_name is either 'Linux' or 'linux'
         if os_name.strip().lower() == "linux":
             logger.info(f"Operating System selected: {os_name}")
@@ -149,10 +255,20 @@ def handle_create_aws_vm(say, user, region, command_line):
 
             # Create EC2 instance using the helper
             ec2_helper = EC2Helper(region=region)
+
+            # Select key to use
+            key_to_use = _helper_select_keypair(
+                key_pair, user, app, os_name, instance_type, say, ec2_helper
+            )
+
+            if not key_to_use:
+                logger.error("Aborting VM creation because returned keypair was empty.")
+                return
+
             server_status_dict = ec2_helper.create_instance(
                 ami_id,  # AMI ID for Amazon Linux
                 instance_type,  # Instance type (e.g., t2.micro)
-                key_pair,  # Key pair (e.g., your_key_pair_name)
+                key_to_use["KeyName"],  # Key pair (e.g., your_key_pair_name)
             )
 
             # Log the server creation response for debugging
@@ -209,7 +325,7 @@ def handle_create_aws_vm(say, user, region, command_line):
                     "Make sure your key file has the correct permissions: `chmod 400 <path_to_your_private_key.pem>`\n"
                     "\n\n"
                     ":warning: *Key Pair Access:*\n"
-                    "To access this instance via SSH, you should have the `ocp-sust-slackbot-keypair` private key.\n"
+                    f"To access this instance via SSH, you should have the private key with fingerprint: `{key_to_use['KeyFingerprint']}`.\n"
                     "If you don't have it, please contact the admin for access."
                 )
             else:
@@ -406,3 +522,53 @@ def handle_list_team_links(say, user):
             },
         ],
     )
+
+
+def _helper_select_keypair(
+    key_option, user, app, os_name, instance_type, say, cloud_sdk_obj
+):
+    key_to_use = {}
+
+    existing_key = cloud_sdk_obj.describe_keypair(key_name=user)
+    if existing_key:
+        logger.debug(f"Found existing key: {existing_key['KeyFingerprint']}")
+    else:
+        logger.debug("No existing keys found.")
+
+    if key_option == "new":
+        # Delete old key since we want to maintian only one key per user (per cloud)
+        if existing_key:
+            success = cloud_sdk_obj.delete_keypair(key_name=user)
+            if not success:
+                say("Some error occurred while deleting old key.")
+                return
+            logger.debug("Deleted old key.")
+
+        new_key = cloud_sdk_obj.create_keypair(key_name=user)
+        logger.debug(f"Created new key: {new_key['KeyFingerprint']}")
+
+        # DM user with private key
+        app.client.chat_postMessage(
+            channel=user,
+            text=f"New key created:\n```{new_key['KeyMaterial']}```\n"
+            + f"Cloud: AWS, OS: {os_name}, Instance: {instance_type}",
+        )
+        logger.debug("Sent private key in user DM.")
+
+        key_to_use = {
+            "KeyName": new_key["KeyName"],
+            "KeyFingerprint": new_key["KeyFingerprint"],
+        }
+
+        return key_to_use
+
+    else:
+        if not existing_key:
+            logger.debug("Existing key not found")
+            say(":warning: You do not have any existing keys.")
+            return
+
+        key_to_use = existing_key
+        logger.debug(f"Using existing key: {key_to_use['KeyFingerprint']}")
+
+        return key_to_use
