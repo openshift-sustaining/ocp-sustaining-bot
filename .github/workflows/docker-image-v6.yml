@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1358
+name: Create Docker Image CI V6 1411
 
 on:
   workflow_dispatch:
@@ -41,6 +41,9 @@ jobs:
     - name: Mask Values
       shell: bash
       run: |
+        API_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
+        #echo ::add-mask::$API_PASSWORD
+        echo "Before mask : $API_PASSWORD"
         TEMPUSER=${{ github.event.inputs.quay_registry_username }}
         echo "Before mask : $TEMPUSER"
         echo "::add-mask::TEMPUSER"
