@@ -1,0 +1,75 @@
+name: Create Docker Image for Slackbot
+
+on:
+  workflow_dispatch:
+    inputs:
+      quay_registry_username:
+        description: 'Username'
+        required: true
+      quay_registry_password:
+        description: 'Password'
+        required: true
+      tag_major_version:
+        description: 'Major Version'
+        required: true
+        default: 1
+      tag_minor_version:
+        description: 'Minor Version'
+        required: true
+        default: 1
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_NAME: "quay.io/ocp_sustaining_engineering/slack_backend"
+      TAG_PATCH_VERSION: 0
+      SLACKBOT_IMAGE_REPO_URL: "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get Next Tag Version
+      # set up the next tag name for the Docker Image
+      # e.g. if there are 24 previous images starting with the tag name "1.1." and none have been deleted,
+      # the next tag name will be 1.1.25
+      run: |
+        JSON_RESPONSE=$(curl -s "$SLACKBOT_IMAGE_REPO_URL")
+        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"))) | length')
+        if [ "$COUNT_EXISTING" -eq 0 ]; then
+            echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+            NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${{ env.TAG_PATCH_VERSION }}"
+        else
+            echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"
+            NEXT_TAG_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.") and test("^${{ inputs.tag_major_version }}\\.${{ inputs.tag_minor_version }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.\(.)"')
+        fi        
+        echo "NEXT_TAG_VERSION=$NEXT_TAG_VERSION" >> $GITHUB_ENV
+        echo "Computed image version: $NEXT_TAG_VERSION"
+
+    - name: Build the Docker image
+      run: |
+        IMAGE_PLUS_TAG_NAME=$IMAGE_NAME:${{ env.NEXT_TAG_VERSION }}
+        echo "IMAGE_PLUS_TAG_NAME=$IMAGE_PLUS_TAG_NAME" >> $GITHUB_ENV
+        echo "Building $IMAGE_PLUS_TAG_NAME .."
+        docker build -t $IMAGE_PLUS_TAG_NAME .
+
+    - name: Mask Values and Login
+      shell: bash
+      run: |
+        QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
+        echo ::add-mask::$QUAY_PASSWORD
+        QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
+        echo ::add-mask::QUAY_USERNAME
+        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
+
+    - name: Push Docker image
+      run: |
+        echo "Pushing ${{ env.IMAGE_PLUS_TAG_NAME }} .."
+        docker push ${{ env.IMAGE_PLUS_TAG_NAME }} 
+        echo "Pushed ${{ env.IMAGE_PLUS_TAG_NAME }}"
+
+    - name: Logout
+      run: |
+        docker logout quay.io
