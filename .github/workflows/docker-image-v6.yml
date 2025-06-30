@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1315
+name: Create Docker Image CI V6 1324
 
 on:
   workflow_dispatch:
@@ -9,6 +9,7 @@ on:
       quay_registry_password:
         description: 'Password'
         required: true
+
 
 jobs:
   build-and-push:
@@ -40,6 +41,7 @@ jobs:
     - name: Mask Values
       shell: bash
       run: |
+        echo "Test: ${{ github.event.inputs.quay_registry_username }}"
         CMD_LINE="-u ${{ inputs.QUAY_REGISTRY_USERNAME }} -p ${{ inputs.QUAY_REGISTRY_PASSWORD }}"
         echo "::add-mask::CMD_LINE"
 
