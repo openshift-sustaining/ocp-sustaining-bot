@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1503
+name: Create Docker Image CI V6 1514
 
 on:
   workflow_dispatch:
@@ -43,16 +43,10 @@ jobs:
       run: |
         QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
         echo ::add-mask::$QUAY_PASSWORD
-        #echo "After mask : $QUAY_PASSWORD"
-        
         QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
         echo ::add-mask::QUAY_USERNAME
-        #echo "After mask : QUAY_USERNAME"    
-        
-        #docker login quay.io -u $QUAY_USERNAME -p $QUAY_PASSWORD  2>/dev/null
-        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin
-        
-        cat /home/runner/.docker/config.json
+        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
+
   
 
     - name: Build the Docker image
@@ -71,4 +65,4 @@ jobs:
     - name: Logout
       run: |
         docker logout quay.io
-        cat /home/runner/.docker/config.json
+
