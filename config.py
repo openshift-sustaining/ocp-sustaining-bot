@@ -1,6 +1,10 @@
 import logging
 import os
 from dotenv import load_dotenv
+import json
+
+#
+load_dotenv()
 
 
 class Config:
@@ -29,6 +33,11 @@ class Config:
             "OS_AUTH_TYPE",
             "ALLOW_ALL_WORKSPACE_USERS",
             "ALLOWED_SLACK_USERS",
+            "OS_IMAGE_MAP",
+            "OS_NETWORK_MAP",
+            "OS_DEFAULT_NETWORK",
+            "OS_DEFAULT_SSH_USER",
+            "OS_DEFAULT_KEY_NAME",
         ]
         for key in required_keys:
             value = os.getenv(key)
@@ -49,6 +58,21 @@ class Config:
                 logging.error(f"Unexpected error with environment variable {key}: {e}")
                 raise
 
+        # Parse all environment variables
+        for key, value in os.environ.items():
+            value = value.strip()
+            parsed = value
+
+            if value.startswith("{") or value.startswith("["):
+                try:
+                    parsed = json.loads(value)
+                except json.JSONDecodeError as e:
+                    logging.error(f"Invalid JSON format for {key}: {e}")
+                    raise ValueError(f"Invalid JSON format for {key}")
+
+            setattr(self, key, parsed)
+
+        # Logging level
         log_level = os.getenv("LOG_LEVEL", "INFO")
         self.log_level = log_level.upper()
 
