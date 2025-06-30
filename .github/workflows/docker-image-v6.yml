@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1524
+name: Create Docker Image CI V6 1530
 
 on:
   workflow_dispatch:
@@ -47,7 +47,7 @@ jobs:
         echo ::add-mask::QUAY_USERNAME
         #echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
         echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin
-
+        cat /home/runner/.docker/config.json
   
 
     - name: Build the Docker image
@@ -66,4 +66,5 @@ jobs:
     - name: Logout
       run: |
         docker logout quay.io
+        cat /home/runner/.docker/config.json
 
