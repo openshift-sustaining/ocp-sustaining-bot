@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1304
+name: Create Docker Image CI V6 1315
 
 on:
   workflow_dispatch:
@@ -37,15 +37,16 @@ jobs:
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
 
+    - name: Mask Values
+      shell: bash
+      run: |
+        CMD_LINE="-u ${{ inputs.QUAY_REGISTRY_USERNAME }} -p ${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+        echo "::add-mask::CMD_LINE"
 
     - name: Docker login
       shell: bash
       run: |
-        CMD_LINE="test"
-        echo "::add-mask::CMD_LINE"
-        CMD_LINE="-u ${{ inputs.QUAY_REGISTRY_USERNAME }} -p ${{ inputs.QUAY_REGISTRY_PASSWORD }}"
-        echo "::add-mask::CMD_LINE"
-        docker login quay.io $CMD_LINE
+        docker login quay.io -u ${{ inputs.QUAY_REGISTRY_USERNAME }} -p ${{ inputs.QUAY_REGISTRY_PASSWORD }}  2>/dev/null
 
                
 
