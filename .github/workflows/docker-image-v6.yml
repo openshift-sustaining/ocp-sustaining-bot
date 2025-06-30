@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6
+name: Create Docker Image CI V6 12:15
 
 on:
   workflow_dispatch:
