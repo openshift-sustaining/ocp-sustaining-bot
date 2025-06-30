@@ -37,7 +37,6 @@ jobs:
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
 
-
     - name: Docker login
       shell: bash
       run: |
@@ -45,7 +44,6 @@ jobs:
 #        QUAY_PASSWORD="$(echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" )" # subshell prevents logging
 #        echo "::add-mask::$QUAY_PASSWORD"
         echo "${{ inputs.QUAY_REGISTRY_USERNAME }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_PASSWORD }}" --password-stdin
-
 
     - name: Build the Docker image
       run: |
