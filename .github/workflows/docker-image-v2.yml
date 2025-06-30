@@ -1,5 +1,5 @@
 # 30th June 10:13
-name: Docker Image CI V2
+name: Docker Image CI V3
 
 on:
   workflow_dispatch:
