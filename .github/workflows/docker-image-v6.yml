@@ -40,7 +40,9 @@ jobs:
     - name: Docker login
       shell: bash
       run: |
-        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+        SWA_DEPLOYMENT_TOKEN=${{ inputs.QUAY_REGISTRY_USERNAME }}
+        echo "::add-mask::$SWA_DEPLOYMENT_TOKEN"
+        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "$SWA_DEPLOYMENT_TOKEN" --password-stdin
 
     - name: Build the Docker image
       run: |
