@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 12:19
+name: Create Docker Image CI V6 12:39
 
 on:
   workflow_dispatch:
@@ -36,16 +36,6 @@ jobs:
         fi        
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $IMAGE_VERSION"
-
-    - name: Store stuff
-      shell: bash
-      run: |
-        SWA_DEPLOYMENT_TOKEN="test"
-        echo "::add-mask::$SWA_DEPLOYMENT_TOKEN"
-        SWA_DEPLOYMENT_TOKEN=${{ inputs.QUAY_REGISTRY_USERNAME }}
-        echo "::add-mask::$SWA_DEPLOYMENT_TOKEN"
-        #echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "$SWA_DEPLOYMENT_TOKEN" --password-stdin
-        echo SWA_DEPLOYMENT_TOKEN=$SWA_DEPLOYMENT_TOKEN >> $GITHUB_ENV 
 
     - name: Docker login
       shell: bash
