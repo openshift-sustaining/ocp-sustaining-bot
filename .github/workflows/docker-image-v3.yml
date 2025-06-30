@@ -1,0 +1,174 @@
+# 30th June 10:13
+name: Docker Image CI V3
+
+on:
+  workflow_dispatch:
+    inputs:
+      quay_registry_username:
+        description: 'Username'
+        required: true
+      quay_registry_password:
+        description: 'Password'
+        required: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    env:
+      MAJOR_VERSION: 1
+      MINOR_VERSION: 1
+      DEFAULT_PATCH_VERSION: 0
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get Patch Version
+      run: |
+        JSON_RESPONSE=$(curl -s "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/")
+        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}"))) | length')
+        if [ "$COUNT_EXISTING" -eq 0 ]; then
+            echo "There are no docker images with version numbers that start with ${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}."
+            IMAGE_VERSION="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.DEFAULT_PATCH_VERSION }}"
+        else
+            echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}"
+            IMAGE_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.") and test("^${{ env.MAJOR_VERSION }}\\.${{ env.MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.\(.)"')
+        fi        
+        echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
+        echo "Computed image version: $IMAGE_VERSION"
+
+#    - name: Set temporary secret
+#      run: |
+#        #TEMP_SECRET="setup"
+#        #TEMP_SECRET=$(cat $GITHUB_EVENT_PATH | jq -r '.inputs.QUAY_REGISTRY_USERNAME' )
+#
+#        #echo "::add-mask::${{inputs.QUAY_REGISTRY_PASSWORD}}"
+#        TEMP_SECRET="${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+#        echo "::add-mask::$TEMP_SECRET"
+#        #echo "TEMP_SECRET=$TEMP_SECRET" >> $GITHUB_ENV
+
+
+#    - name: Log in to Docker registry
+#      env:
+#        PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
+#      run: |
+#        echo "::add-mask::$PASSWORD"
+#        TEMP_SECRET="${{ env.$PASSWORD }}"
+#        echo "$TEMP_SECRET" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+#        #echo "${{ env.$PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+
+#    # this wroks but in env section
+#    - name: Log in to Docker registry
+#      env:
+#        PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
+#      run: |
+#        echo "::add-mask::$PASSWORD"
+#        TEMP_SECRET="$PASSWORD"
+#        echo "$TEMP_SECRET" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+
+    # works
+#    - name: Log in to Quay.io securely
+#      uses: docker/login-action@v3
+#      with:
+#        registry: quay.io
+#        username: ${{ inputs.QUAY_REGISTRY_USERNAME }}
+#        password: ${{ secrets.QUAY_REGISTRY_PASSWORD }}
+
+
+#    - name: Secure Docker login with inputs
+#      run: |
+#        echo "::add-mask::${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+#        echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_USERNAME }}" --password-stdin
+#
+#    - name: Secure Docker login
+#      shell: bash
+#      run: |
+#        TEMP_PASSWORD="${QUAY_PASSWORD}"
+#        echo "::add-mask::$TEMP_PASSWORD"
+#        echo "$TEMP_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
+#      env:
+#        QUAY_USERNAME: ${{ inputs.QUAY_REGISTRY_USERNAME }}
+#        QUAY_PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
+
+
+#    - name: Secure Docker login with inputs (no leak)
+#      shell: bash
+#      run: |
+#        QUAY_USERNAME="${{ inputs.QUAY_REGISTRY_USERNAME }}"
+#        QUAY_PASSWORD="${{ inputs.QUAY_REGISTRY_PASSWORD }}"
+#        echo "::add-mask::$QUAY_PASSWORD"
+#        echo "$QUAY_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
+
+#    - name: Login to Quay.io securely without logging password
+#      shell: bash
+#      run: |
+#        echo "::add-mask::***"
+#        echo "${INPUT_PASSWORD}" | docker login quay.io -u "${INPUT_USERNAME}" --password-stdin
+#      env:
+#        INPUT_USERNAME: ${{ inputs.QUAY_REGISTRY_USERNAME }}
+#        INPUT_PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
+
+#    - name: Docker login without leaking password
+#      shell: bash
+#      run: |
+#        QUAY_USERNAME="${{ inputs.QUAY_REGISTRY_USERNAME }}"
+#        QUAY_PASSWORD="$(echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" )" # subshell prevents logging
+#        echo "::add-mask::$QUAY_PASSWORD"
+#        echo "$QUAY_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
+
+
+#    - name: Docker login using inputs securely
+#      run: |
+#        echo "::add-mask::$QUAY_REGISTRY_PASSWORD"
+#        echo "$QUAY_REGISTRY_PASSWORD" | docker login quay.io -u "$QUAY_REGISTRY_USERNAME" --password-stdin
+#      env:
+#        QUAY_REGISTRY_USERNAME: ${{ inputs.QUAY_REGISTRY_USERNAME }}
+#        QUAY_REGISTRY_PASSWORD: ${{ inputs.QUAY_REGISTRY_PASSWORD }}
+
+#    - name: Secure Docker login (no secret leak)
+#      shell: bash
+#      run: |
+#        PASSWORD="$GITHUB_INPUT_QUAY_REGISTRY_PASSWORD"
+#        USERNAME="$GITHUB_INPUT_QUAY_REGISTRY_USERNAME"
+#        echo "::add-mask::$PASSWORD"
+#        echo "$PASSWORD" | docker login quay.io -u "$USERNAME" --password-stdin
+
+#    - name: Secure Docker login (no secret leak)
+#      run: |
+#        echo "::add-mask::${{ github.event.inputs.quay_registry_password }}"
+#        echo "${{ github.event.inputs.quay_registry_password }}" | docker login quay.io -u "${{ github.event.inputs.quay_registry_username }}" --password-stdin
+#
+#
+
+#    - name: Secure Docker login (no secret leak)
+#      shell: bash
+#      run: |
+#        echo "::add-mask::$GITHUB_INPUT_QUAY_REGISTRY_PASSWORD"
+#        echo "$GITHUB_INPUT_QUAY_REGISTRY_PASSWORD" | docker login quay.io -u "$GITHUB_INPUT_QUAY_REGISTRY_USERNAME" --password-stdin
+
+
+    - name: Docker login
+      shell: bash
+      run: |
+#        QUAY_USERNAME="${{ inputs.QUAY_REGISTRY_USERNAME }}"
+#        QUAY_PASSWORD="$(echo "${{ inputs.QUAY_REGISTRY_PASSWORD }}" )" # subshell prevents logging
+#        echo "::add-mask::$QUAY_PASSWORD"
+        echo "${{ inputs.QUAY_REGISTRY_USERNAME }}" | docker login quay.io -u "${{ inputs.QUAY_REGISTRY_PASSWORD }}" --password-stdin
+
+
+    - name: Build the Docker image
+      run: |
+        IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.IMAGE_VERSION }}
+        echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+        echo "Building $IMAGE_NAME .."
+        docker build -t $IMAGE_NAME .
+
+    - name: Push Docker image
+      run: |
+        echo "Pushing ${{ env.IMAGE_NAME }} .."
+        docker push ${{ env.IMAGE_NAME }} 
+        echo "Pushed ${{ env.IMAGE_NAME }}"
+
+    - name: Logout
+      run: docker logout quay.io
