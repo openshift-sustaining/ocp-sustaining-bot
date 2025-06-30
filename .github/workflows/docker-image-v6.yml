@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1301
+name: Create Docker Image CI V6 1304
 
 on:
   workflow_dispatch:
@@ -41,6 +41,8 @@ jobs:
     - name: Docker login
       shell: bash
       run: |
+        CMD_LINE="test"
+        echo "::add-mask::CMD_LINE"
         CMD_LINE="-u ${{ inputs.QUAY_REGISTRY_USERNAME }} -p ${{ inputs.QUAY_REGISTRY_PASSWORD }}"
         echo "::add-mask::CMD_LINE"
         docker login quay.io $CMD_LINE
