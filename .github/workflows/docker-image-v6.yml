@@ -1,4 +1,4 @@
-name: Create Docker Image CI V6 1735
+name: Create Docker Image CI V6 1742
 
 on:
   workflow_dispatch:
@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      IMAGE_NAME: "quay.io/ocp_sustaining_engineering/slack_backend"
       TAG_MAJOR_VERSION: 1
       TAG_MINOR_VERSION: 1
       TAG_PATCH_VERSION: 0
@@ -43,10 +44,10 @@ jobs:
 
     - name: Build the Docker image
       run: |
-        IMAGE_NAME=quay.io/ocp_sustaining_engineering/slack_backend:${{ env.NEXT_TAG_VERSION }}
-        echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-        echo "Building $IMAGE_NAME .."
-        docker build -t $IMAGE_NAME .
+        IMAGE_PLUS_TAG_NAME=$IMAGE_NAME:${{ env.NEXT_TAG_VERSION }}
+        echo "IMAGE_PLUS_TAG_NAME=$IMAGE_PLUS_TAG_NAME" >> $GITHUB_ENV
+        echo "Building $IMAGE_PLUS_TAG_NAME .."
+        docker build -t $IMAGE_PLUS_TAG_NAME .
 
     - name: Mask Values and Login
       shell: bash
@@ -59,9 +60,9 @@ jobs:
 
     - name: Push Docker image
       run: |
-        echo "Pushing ${{ env.IMAGE_NAME }} .."
-        docker push ${{ env.IMAGE_NAME }} 
-        echo "Pushed ${{ env.IMAGE_NAME }}"
+        echo "Pushing ${{ env.IMAGE_PLUS_TAG_NAME }} .."
+        docker push ${{ env.IMAGE_PLUS_TAG_NAME }} 
+        echo "Pushed ${{ env.IMAGE_PLUS_TAG_NAME }}"
 
     - name: Logout
       run: |
