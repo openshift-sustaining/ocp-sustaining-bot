@@ -1,8 +1,9 @@
 import logging
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 from dynaconf import Dynaconf
 import tempfile
+import json
 
 required_keys = [
     "SLACK_BOT_TOKEN",
@@ -28,13 +29,33 @@ ca_bundle_file = tempfile.NamedTemporaryFile()
 with open(ca_bundle_file.name, "w") as f:
     f.write(os.getenv("RH_CA_BUNDLE_TEXT"))
 
-config = Dynaconf(
-    load_dotenv=True,
-    environment=False,
-    settings_files=["settings.toml", ".secrets.toml"],
-    vault_enabled=True,
-    vault={"url": "https://vault.corp.redhat.com:8200/", "verify": ca_bundle_file.name},
-)
+try:
+    config = Dynaconf(
+        load_dotenv=True,  # This will load config from `.env`
+        environment=False,  # This will disable layered env
+        vault_enabled=True,
+        vault={
+            "url": os.environ["VAULT_URL_FOR_DYNACONF"],
+            "verify": ca_bundle_file.name,
+        },
+        envvar_prefix=False,  # This will make it so that ALL the variables from `.env` are loaded
+    )
+except:
+    # Blanket exception to cover multiple exceptions like vault not found or authentication failure
+    logging.warn("Vault connection failed")
+
+for key in dir(config):
+    try:
+        value = getattr(config, key)
+        if isinstance(value, str):
+            val = json.loads(value)
+            # NOTE: This will create a `Dynabox` object which is basically a wrapper around dicts which allows . access to keys
+            # So you can access `config.key.val` instead of `config.key['val']` but it can be used like a dictionary as well.
+            config.set(key, val)
+    except json.decoder.JSONDecodeError:
+        pass
+    except AttributeError:
+        logging.warn(f"Attribute {key} not found.")  # Should usually be harmless
 
 # Verify that all keys were loaded correctly
 for k in required_keys:
