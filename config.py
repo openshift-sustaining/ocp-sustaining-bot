@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from dynaconf import Dynaconf
 import tempfile
 import json
+import requests
+import hvac
 
 required_keys = [
     "SLACK_BOT_TOKEN",
@@ -40,9 +42,13 @@ try:
         },
         envvar_prefix=False,  # This will make it so that ALL the variables from `.env` are loaded
     )
+except requests.exceptions.ConnectionError:
+    logging.warn("Vault connection failed")
+except hvac.exceptions.InvalidRequest:
+    logging.warn("Authentication error with Vault")
 except:
     # Blanket exception to cover multiple exceptions like vault not found or authentication failure
-    logging.warn("Vault connection failed")
+    logging.warn("Some issue with vault occurred")
 
 for key in dir(config):
     try:
