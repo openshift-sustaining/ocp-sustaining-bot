@@ -62,7 +62,7 @@ jobs:
         COUNT_EXISTING=$(echo "$ALL_TAGS" | jq '. | length')
         
         if [ "$COUNT_EXISTING" -eq 0 ]; then
-             echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+            echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
             NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${{ env.TAG_PATCH_VERSION }}"
         else
             echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"
