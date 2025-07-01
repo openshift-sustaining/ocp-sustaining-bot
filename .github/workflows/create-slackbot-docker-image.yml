@@ -33,6 +33,7 @@ jobs:
 
     - name: Get Next Tag Version
       # set up the next tag name for the Docker Image
+
       # e.g. if there are 24 previous images starting with the tag name "1.1."
       # the next tag name will be 1.1.25
       run: |
