@@ -37,15 +37,39 @@ jobs:
       # e.g. if there are 24 previous images starting with the tag name "1.1."
       # the next tag name will be 1.1.25
       run: |
-        PARAMS="?onlyActiveTags=1&filter_tag_name=like:${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
-        JSON_RESPONSE=$(curl -s "$SLACKBOT_IMAGE_REPO_URL$PARAMS")
-        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"))) | length')
+        PAGE=1
+        LIMIT=50
+        HAS_MORE=true
+        # Initialize an empty JSON array
+        ALL_TAGS='[]'
+        
+        FILTER_PARAMS="&onlyActiveTags=1&filter_tag_name=like:${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+        
+        while [ "$HAS_MORE" = true ]; do
+          echo "Fetching page $PAGE..."
+          PAGE_AND_LIMIT_PARAMS="?limit=$LIMIT&page=$PAGE"
+          JSON_RESPONSE=$(curl -s "$SLACKBOT_IMAGE_REPO_URL$PAGE_AND_LIMIT_PARAMS$FILTER_PARAMS")
+        
+          # Extract just the tags and append to ALL_TAGS
+          TAGS=$(echo "$JSON_RESPONSE" | jq '.tags')
+          ALL_TAGS=$(jq -s 'add' <(echo "$ALL_TAGS") <(echo "$TAGS"))
+        
+          HAS_MORE=$(echo "$JSON_RESPONSE" | jq '.has_additional')
+          PAGE=$((PAGE + 1))
+        done
+        
+        # Now ALL_TAGS contains all the tags from all pages
+        COUNT_EXISTING=$(echo "$ALL_TAGS" | jq '. | length')
+        
         if [ "$COUNT_EXISTING" -eq 0 ]; then
-            echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+             echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
             NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${{ env.TAG_PATCH_VERSION }}"
         else
             echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"
-            NEXT_TAG_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.") and test("^${{ inputs.tag_major_version }}\\.${{ inputs.tag_minor_version }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.\(.)"')
+            MAX_VER=$(echo "$ALL_TAGS" | jq -r '.[].name'| sort -V | tail -n1)
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$MAX_VER"
+            NEW_PATCH=$((PATCH + 1))
+            NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${NEW_PATCH}"
         fi        
         echo "NEXT_TAG_VERSION=$NEXT_TAG_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $NEXT_TAG_VERSION"
