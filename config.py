@@ -1,6 +1,6 @@
 import logging
 import os
-from dotenv import load_dotenv, dotenv_values
+from dotenv import load_dotenv
 from dynaconf import Dynaconf
 import tempfile
 import json
