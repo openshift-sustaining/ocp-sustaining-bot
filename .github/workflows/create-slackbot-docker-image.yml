@@ -24,7 +24,6 @@ jobs:
 
     env:
       IMAGE_NAME: "quay.io/ocp_sustaining_engineering/slack_backend"
-      TAG_MINOR_VERSION: 1
       TAG_PATCH_VERSION: 0
       SLACKBOT_IMAGE_REPO_URL: "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"
 
@@ -38,13 +37,13 @@ jobs:
       # the next tag name will be 1.1.25
       run: |
         JSON_RESPONSE=$(curl -s "$SLACKBOT_IMAGE_REPO_URL")
-        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ inputs.tag_major_version }}.${{ env.TAG_MINOR_VERSION }}"))) | length')
+        COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"))) | length')
         if [ "$COUNT_EXISTING" -eq 0 ]; then
-            echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ env.TAG_MINOR_VERSION }}."
-            NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ env.TAG_MINOR_VERSION }}.${{ env.TAG_PATCH_VERSION }}"
+            echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+            NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${{ env.TAG_PATCH_VERSION }}"
         else
-            echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ env.TAG_MINOR_VERSION }}"
-            NEXT_TAG_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ inputs.tag_major_version }}.${{ env.TAG_MINOR_VERSION }}.") and test("^${{ inputs.tag_major_version }}\\.${{ env.TAG_MINOR_VERSION }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ inputs.tag_major_version }}.${{ env.TAG_MINOR_VERSION }}.\(.)"')
+            echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"
+            NEXT_TAG_VERSION=$(echo "$JSON_RESPONSE" |jq -r '.tags | map(select(.expiration | not)) | map(.name)| map(select(startswith("${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.") and test("^${{ inputs.tag_major_version }}\\.${{ inputs.tag_minor_version }}\\.\\d+$"))) | map(split(".") | .[2] | tonumber) | max + 1 | "${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.\(.)"')
         fi        
         echo "NEXT_TAG_VERSION=$NEXT_TAG_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $NEXT_TAG_VERSION"
