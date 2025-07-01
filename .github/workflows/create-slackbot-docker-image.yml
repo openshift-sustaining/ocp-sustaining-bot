@@ -33,10 +33,11 @@ jobs:
 
     - name: Get Next Tag Version
       # set up the next tag name for the Docker Image
-      # e.g. if there are 24 previous images starting with the tag name "1.1." and none have been deleted,
+      # e.g. if there are 24 previous images starting with the tag name "1.1."
       # the next tag name will be 1.1.25
       run: |
-        JSON_RESPONSE=$(curl -s "$SLACKBOT_IMAGE_REPO_URL")
+        PARAMS="?onlyActiveTags=1&filter_tag_name=like:${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+        JSON_RESPONSE=$(curl -s "$SLACKBOT_IMAGE_REPO_URL$PARAMS")
         COUNT_EXISTING=$(echo "$JSON_RESPONSE" | jq '.tags| map(select(.expiration | not)) | map(.name) | map(select(startswith("${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"))) | length')
         if [ "$COUNT_EXISTING" -eq 0 ]; then
             echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
