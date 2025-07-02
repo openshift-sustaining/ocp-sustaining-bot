@@ -12,11 +12,11 @@ on:
       tag_major_version:
         description: 'Major Version'
         required: true
-        default: 1
+        default: "1"
       tag_minor_version:
         description: 'Minor Version'
         required: true
-        default: 1
+        default: "1"
 
 jobs:
   build-and-push:
@@ -28,6 +28,17 @@ jobs:
       SLACKBOT_IMAGE_REPO_URL: "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"
 
     steps:
+    - name: Validate inputs
+      run: |
+        if ! [[ "${{ inputs.tag_major_version }}" =~ ^[0-9]+$ ]]; then
+          echo "Major version must be numeric"
+          exit 1
+        fi
+        if ! [[ "${{ inputs.tag_minor_version }}" =~ ^[0-9]+$ ]]; then
+          echo "Minor version must be numeric" 
+          exit 1
+        fi
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -48,7 +59,10 @@ jobs:
         while [ "$HAS_MORE" = true ]; do
           echo "Fetching page $PAGE..."
           PAGE_AND_LIMIT_PARAMS="?limit=$LIMIT&page=$PAGE"
-          JSON_RESPONSE=$(curl -s "$SLACKBOT_IMAGE_REPO_URL$PAGE_AND_LIMIT_PARAMS$FILTER_PARAMS")
+          if ! JSON_RESPONSE=$(curl -s -f --max-time 300 "$SLACKBOT_IMAGE_REPO_URL$PAGE_AND_LIMIT_PARAMS$FILTER_PARAMS"); then
+            echo "Failed to fetch tags from API"
+            exit 1
+          fi
         
           # Extract just the tags and append to ALL_TAGS
           TAGS=$(echo "$JSON_RESPONSE" | jq '.tags')
@@ -87,14 +101,15 @@ jobs:
         QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
         echo ::add-mask::$QUAY_PASSWORD
         QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
-        echo ::add-mask::QUAY_USERNAME
+        echo ::add-mask::$QUAY_USERNAME
         echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
 
-    - name: Push Docker image
-      run: |
-        echo "Pushing ${{ env.IMAGE_PLUS_TAG_NAME }} .."
-        docker push ${{ env.IMAGE_PLUS_TAG_NAME }} 
-        echo "Pushed ${{ env.IMAGE_PLUS_TAG_NAME }}"
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
 
     - name: Logout
       run: |
