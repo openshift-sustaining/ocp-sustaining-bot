@@ -103,9 +103,6 @@ jobs:
         context: .
         push: true
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
-        build-args: |
-          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-          VERSION=${{ env.NEXT_TAG_VERSION }}        
 
     - name: Logout
       run: |
