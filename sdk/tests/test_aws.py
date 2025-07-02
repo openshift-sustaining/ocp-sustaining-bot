@@ -123,7 +123,7 @@ def test_create_instance_success(mock_boto3_session, mock_boto3_client):
         TagSpecifications=[
             {
                 "ResourceType": "instance",
-                "Tags": [{"Key": "Name", "Value": username}],
+                "Tags": [{"Key": "Name", "Value": f"{username}"}],
             }
         ],
         MinCount=1,
