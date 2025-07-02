@@ -88,13 +88,6 @@ jobs:
         echo "NEXT_TAG_VERSION=$NEXT_TAG_VERSION" >> $GITHUB_ENV
         echo "Computed image version: $NEXT_TAG_VERSION"
 
-    - name: Build the Docker image
-      run: |
-        IMAGE_PLUS_TAG_NAME=$IMAGE_NAME:${{ env.NEXT_TAG_VERSION }}
-        echo "IMAGE_PLUS_TAG_NAME=$IMAGE_PLUS_TAG_NAME" >> $GITHUB_ENV
-        echo "Building $IMAGE_PLUS_TAG_NAME .."
-        docker build -t $IMAGE_PLUS_TAG_NAME .
-
     - name: Mask Values and Login
       shell: bash
       run: |
