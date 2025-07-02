@@ -46,9 +46,6 @@ except requests.exceptions.ConnectionError:
     logging.warn("Vault connection failed")
 except hvac.exceptions.InvalidRequest:
     logging.warn("Authentication error with Vault")
-except:
-    # Blanket exception to cover multiple exceptions like vault not found or authentication failure
-    logging.warn("Some issue with vault occurred")
 
 for key in dir(config):
     try:
