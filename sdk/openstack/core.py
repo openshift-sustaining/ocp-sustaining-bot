@@ -1,7 +1,7 @@
 from openstack import connection
 from openstack.exceptions import ResourceFailure
 from config import config
-from sdk.tools.helpers import get_values_for_key_from_dict_of_parameters
+from sdk.tools.helpers import get_list_of_values_for_key_in_dict_of_parameters
 import logging
 import traceback
 
@@ -36,7 +36,7 @@ class OpenStackHelper:
 
         try:
             # Extract status filters as a list
-            status_filter = get_values_for_key_from_dict_of_parameters(
+            status_filter = get_list_of_values_for_key_in_dict_of_parameters(
                 "status", params_dict
             )
 

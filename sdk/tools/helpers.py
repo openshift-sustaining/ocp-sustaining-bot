@@ -6,11 +6,61 @@ logger = logging.getLogger(__name__)
 
 def get_dict_of_command_parameters(command_line: str) -> dict:
     """
-    Given the command_line e.g. list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped --stop
-    Parse the parameters and return a dictionary of parameters and values/flags:
-    - Parameters with values are stored as key-value pairs: {'state': 'pending,stopped', 'type': 't3.micro,t2.micro'}
-    - Flag parameters (without values) are stored as key-boolean pairs: {'stop': True}
-    Returns empty dict {} if no parameters found.
+    Parse command line arguments into a dictionary of parameters and their values.
+
+    This function extracts command-line parameters from a string and converts them into
+    a dictionary format. It handles both valued parameters (--key=value or --key value)
+    and flag parameters (--flag). The function supports various parameter formats including
+    comma-separated values and multi-token values.
+
+    Args:
+        command_line (str): The command line string to parse. Can include the command name
+                           followed by parameters in various formats.
+
+    Returns:
+        dict: A dictionary containing parsed parameters where:
+              - Keys are parameter names (without leading dashes)
+              - Values are either:
+                * String values for parameters with values (comma-separated values are cleaned)
+                * Boolean True for flag parameters without values
+              - Returns empty dict {} if no parameters found or on parsing errors
+
+    Supported Parameter Formats:
+        - --param=value          : {'param': 'value'}
+        - --param value          : {'param': 'value'}
+        - -param value           : {'param': 'value'}
+        - --flag                 : {'flag': True}
+        - --list=val1,val2       : {'list': 'val1,val2'}
+        - --multi word value     : {'multi': 'word value'}
+        - --quoted="spaced value": {'quoted': 'spaced value'}
+
+    Examples:
+        >>> get_dict_of_command_parameters("list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped --stop")
+        {'type': 't3.micro,t2.micro', 'state': 'pending,stopped', 'stop': True}
+
+        >>> get_dict_of_command_parameters("command --region us-east-1 --verbose")
+        {'region': 'us-east-1', 'verbose': True}
+
+        >>> get_dict_of_command_parameters("command --name 'my server' --count 5")
+        {'name': 'my server', 'count': '5'}
+
+        >>> get_dict_of_command_parameters("command --list item1, item2 , item3")
+        {'list': 'item1,item2,item3'}
+
+        >>> get_dict_of_command_parameters("")
+        {}
+
+        >>> get_dict_of_command_parameters("command-with-no-params")
+        {}
+
+    Notes:
+        - Parameter names have leading dashes (-/--) stripped from keys
+        - Comma-separated values are cleaned (extra whitespace removed)
+        - Multi-token values are joined with spaces
+        - Uses shlex.split for proper handling of quoted arguments
+        - Gracefully handles malformed input by returning empty dict
+        - Logs errors when parsing fails
+        - Call get_list_of_values_for_key_in_dict_of_parameters to get a list of values for a key in the returned dictionary
     """
     if not isinstance(command_line, str):
         return {}
@@ -19,68 +69,136 @@ def get_dict_of_command_parameters(command_line: str) -> dict:
     if not command_line:
         return {}
 
-    try:
-        # if a value contains a comma separated list, remove any trailing commas and remove whitespace between values
-        stripped_args = [
-            arg.strip()
-            for arg in command_line.split(",")
-            if arg.strip() not in (",", "")
-        ]
-        command_line = ",".join(stripped_args)
+    parsed_params = {}
 
+    try:
+        # Use shlex.split to properly handle quoted arguments and spaces
         args = shlex.split(command_line)
-        parsed_params = {}
 
         i = 0
         while i < len(args):
             token = args[i]
-            if token.startswith("--"):
-                # remove the leading -- to extract the key name
-                key = token[2:]
+
+            # Handle both --param and -param formats
+            if token.startswith("--") or (token.startswith("-") and len(token) > 1):
+                # Extract the parameter name (remove leading dashes)
+                key = token.lstrip("-")
                 value = None
+
                 if "=" in key:
-                    # handles the case where the key and value are separated by an equals sign.
+                    # Handle --key=value format
                     key, value = key.split("=", 1)
-                elif i + 1 < len(args) and not args[i + 1].startswith("--"):
-                    # handles the case where the key and value are separated by a space
-                    value = args[i + 1]
-                    i += 1  # Skip next token since it's a value
+
+                    # Check if this value continues across multiple tokens (comma-separated values)
+                    value_parts = [value]
+                    next_idx = i + 1
+
+                    # Collect subsequent tokens until we hit another parameter or end of args
+                    while (
+                        next_idx < len(args)
+                        and not args[next_idx].startswith("-")
+                        and not args[next_idx].startswith("--")
+                    ):
+                        value_parts.append(args[next_idx])
+                        next_idx += 1
+
+                    # Join all value parts
+                    value = " ".join(value_parts)
+                    # Update index to skip the consumed tokens
+                    i = next_idx - 1
+
+                elif i + 1 < len(args) and not args[i + 1].startswith("-"):
+                    # Handle --key value format
+                    value_parts = [args[i + 1]]
+                    next_idx = i + 2
+
+                    # Collect subsequent tokens until we hit another parameter or end of args
+                    while (
+                        next_idx < len(args)
+                        and not args[next_idx].startswith("-")
+                        and not args[next_idx].startswith("--")
+                    ):
+                        value_parts.append(args[next_idx])
+                        next_idx += 1
+
+                    # Join all value parts
+                    value = " ".join(value_parts)
+                    # Update index to skip the consumed tokens
+                    i = next_idx - 1
+
+                # Clean up key name
                 key = key.strip()
-                if len(key) > 0:
-                    if value not in (None, ""):
-                        # Parameter with value
-                        parsed_params[key] = (
-                            value.strip()
-                            if isinstance(value, str)
-                            else str(value).strip()
-                        )
+
+                # Only add valid parameter names
+                if key:
+                    if value is not None and value != "":
+                        # Clean up comma-separated values in the value
+                        cleaned_value = _clean_comma_separated_value(value)
+                        parsed_params[key] = cleaned_value
                     else:
                         # Flag parameter without value (e.g., --stop, --delete)
                         parsed_params[key] = True
             i += 1
+
     except Exception as e:
-        logger.error(f"Error parsing command line: {e}")
+        logger.error(f"Error parsing command line '{command_line}': {e}")
+
     return parsed_params
 
 
-def get_values_for_key_from_dict_of_parameters(key_name: str, dict_of_parameters: dict):
+def get_list_of_values_for_key_in_dict_of_parameters(
+    key_name: str, dict_of_parameters: dict
+) -> list[str]:
     """
-    Given
-    1. dict_of_parameters - a dictionary of parameters and associated values e.g.
-       {'state': 'pending,stopped', 'type': 't3.micro,t2.micro'}
-    2. key_name - the key name e.g. 'state'
-    Return the list of values associated with the key e.g. ['pending', 'stopped'] if present or else []
+    Given a dictionary of parameters and a key name, return a list of values for that key.
+
+    Args:
+        key_name: The parameter name to look for
+        dict_of_parameters: Dictionary containing parameters and their values
+
+    Returns:
+        List of string values split by comma if the key exists and has a string value,
+        empty list otherwise.
+
+    Examples:
+        >>> get_list_of_values_for_key_in_dict_of_parameters("state", {"state": "pending,stopped"})
+        ['pending', 'stopped']
+        >>> get_list_of_values_for_key_in_dict_of_parameters("missing", {"state": "pending"})
+        []
+        >>> get_list_of_values_for_key_in_dict_of_parameters("flag", {"flag": True})
+        []
     """
-    list_of_values = []
-    if (
-        key_name
-        and dict_of_parameters
-        and isinstance(key_name, str)
-        and isinstance(dict_of_parameters, dict)
-    ):
-        values = dict_of_parameters.get(key_name, None)
-        if values and isinstance(values, str):
-            list_of_values = [
-                value.strip() for value in values.split(",") if value not in (",", "")
-            ]
-    return list_of_values
+    # Input validation
+    if not key_name or not dict_of_parameters:
+        return []
+
+    if not isinstance(key_name, str) or not isinstance(dict_of_parameters, dict):
+        return []
+
+    # Get the value for the key
+    value = dict_of_parameters.get(key_name)
+
+    # Only process string values (skip booleans, None, etc.)
+    if not isinstance(value, str) or not value.strip():
+        return []
+
+    # Use the existing comma-separated value cleaning function
+    cleaned_value = _clean_comma_separated_value(value)
+
+    # Split by comma and return the list
+    return cleaned_value.split(",") if cleaned_value else []
+
+
+def _clean_comma_separated_value(value: str) -> str:
+    """
+    Clean up comma-separated values by removing extra whitespace and empty values.
+    E.g., "pending, stopped , running" -> "pending,stopped,running"
+    """
+    if not value or not isinstance(value, str):
+        return value
+
+    # Split by comma, strip each part, and filter out empty strings
+    parts = [part.strip() for part in value.split(",") if part.strip()]
+
+    # Join back with commas
+    return ",".join(parts)

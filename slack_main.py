@@ -1,6 +1,7 @@
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
+from sdk.tools.helpers import get_dict_of_command_parameters
 import logging
 import json
 import sys
@@ -56,23 +57,24 @@ def mention_handler(body, say):
             cmd = cmd_strings[0]
             command_line = " ".join(cmd_strings)
 
+        # Extract parameters using the utility function
+        params_dict = get_dict_of_command_parameters(command_line)
+
         commands = {
             "help": lambda: handle_help(say, user),
             "create-openstack-vm": lambda: handle_create_openstack_vm(
-                say, user, command_line
+                say, user, params_dict
             ),
-            "list-openstack-vms": lambda: handle_list_openstack_vms(say, command_line),
+            "list-openstack-vms": lambda: handle_list_openstack_vms(say, params_dict),
             "hello": lambda: handle_hello(say, user),
             "create-aws-vm": lambda: handle_create_aws_vm(
                 say,
                 user,
                 region,
-                command_line,
                 app,  # pass `app` so that bot can send DM to users
+                params_dict,
             ),
-            "list-aws-vms": lambda: handle_list_aws_vms(
-                say, region, user, command_line
-            ),
+            "list-aws-vms": lambda: handle_list_aws_vms(say, region, user, params_dict),
             "list-team-links": lambda: handle_list_team_links(say, user),
         }
 
