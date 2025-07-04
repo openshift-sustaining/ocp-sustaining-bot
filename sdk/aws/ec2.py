@@ -169,7 +169,7 @@ class EC2Helper:
         """
         try:
             # Get the username for tagging
-            sts = boto3.client("sts")
+            sts = self.session.client("sts")
             identity = sts.get_caller_identity()
             arn = identity["Arn"]
             username = (

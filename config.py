@@ -1,87 +1,67 @@
 import logging
 import os
 from dotenv import load_dotenv
+from dynaconf import Dynaconf
+import tempfile
 import json
+import requests
+import hvac
 
-#
+required_keys = [
+    "SLACK_BOT_TOKEN",
+    "SLACK_APP_TOKEN",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_DEFAULT_REGION",
+    "OS_AUTH_URL",
+    "OS_PROJECT_ID",
+    "OS_INTERFACE",
+    "OS_ID_API_VERSION",
+    "OS_REGION_NAME",
+    "OS_APP_CRED_ID",
+    "OS_APP_CRED_SECRET",
+    "OS_AUTH_TYPE",
+    "ALLOW_ALL_WORKSPACE_USERS",
+    "ALLOWED_SLACK_USERS",
+]
+
+# Load CA Cert to avoid SSL errors
 load_dotenv()
+ca_bundle_file = tempfile.NamedTemporaryFile()
+with open(ca_bundle_file.name, "w") as f:
+    f.write(os.getenv("RH_CA_BUNDLE_TEXT"))
 
+try:
+    config = Dynaconf(
+        load_dotenv=True,  # This will load config from `.env`
+        environment=False,  # This will disable layered env
+        vault_enabled=True,
+        vault={
+            "url": os.environ["VAULT_URL_FOR_DYNACONF"],
+            "verify": ca_bundle_file.name,
+        },
+        envvar_prefix=False,  # This will make it so that ALL the variables from `.env` are loaded
+    )
+except requests.exceptions.ConnectionError:
+    logging.warn("Vault connection failed")
+except hvac.exceptions.InvalidRequest:
+    logging.warn("Authentication error with Vault")
 
-class Config:
-    """
-    Config class to load and validate environment variables.
+for key in dir(config):
+    try:
+        value = getattr(config, key)
+        if isinstance(value, str):
+            val = json.loads(value)
+            # NOTE: This will create a `Dynabox` object which is basically a wrapper around dicts which allows . access to keys
+            # So you can access `config.key.val` instead of `config.key['val']` but it can be used like a dictionary as well.
+            config.set(key, val)
+    except json.decoder.JSONDecodeError:
+        pass
+    except AttributeError:
+        logging.warn(f"Attribute {key} not found.")  # Should usually be harmless
 
-    If any environment variable is missing or empty, a ValueError will be raised.
-    """
-
-    def __init__(self):
-        # Load environment variables from a .env file
-        load_dotenv()
-        required_keys = [
-            "SLACK_BOT_TOKEN",
-            "SLACK_APP_TOKEN",
-            "AWS_ACCESS_KEY_ID",
-            "AWS_SECRET_ACCESS_KEY",
-            "AWS_DEFAULT_REGION",
-            "OS_AUTH_URL",
-            "OS_PROJECT_ID",
-            "OS_INTERFACE",
-            "OS_ID_API_VERSION",
-            "OS_REGION_NAME",
-            "OS_APP_CRED_ID",
-            "OS_APP_CRED_SECRET",
-            "OS_AUTH_TYPE",
-            "ALLOW_ALL_WORKSPACE_USERS",
-            "ALLOWED_SLACK_USERS",
-            "OS_IMAGE_MAP",
-            "OS_NETWORK_MAP",
-            "OS_DEFAULT_NETWORK",
-            "OS_DEFAULT_SSH_USER",
-            "OS_DEFAULT_KEY_NAME",
-        ]
-        for key in required_keys:
-            value = os.getenv(key)
-            try:
-                if not value:
-                    # Raise an error if the environment variable is missing or empty
-                    raise ValueError(
-                        f"Missing or empty value for environment variable: {key}"
-                    )
-
-                setattr(self, key, value)
-
-            except ValueError as e:
-                logging.error(f"Error: {e}")
-                raise
-
-            except Exception as e:
-                logging.error(f"Unexpected error with environment variable {key}: {e}")
-                raise
-
-        # Parse all environment variables
-        for key, value in os.environ.items():
-            value = value.strip()
-            parsed = value
-
-            if value.startswith("{") or value.startswith("["):
-                try:
-                    parsed = json.loads(value)
-                except json.JSONDecodeError as e:
-                    logging.error(f"Invalid JSON format for {key}: {e}")
-                    raise ValueError(f"Invalid JSON format for {key}")
-
-            setattr(self, key, parsed)
-
-        # Logging level
-        log_level = os.getenv("LOG_LEVEL", "INFO")
-        self.log_level = log_level.upper()
-
-        self.setup_logging()
-
-    def setup_logging(self):
-        log_format = "[%(asctime)s %(levelname)s %(name)s] %(message)s"
-
-        logging.basicConfig(level=self.log_level, format=log_format)
-
-
-config = Config()
+# Verify that all keys were loaded correctly
+for k in required_keys:
+    if not hasattr(config, k):
+        logging.error(f"Could not read key: {k} from Vault.")
+        raise AttributeError(f"Could not read key: {k} from Vault.")
