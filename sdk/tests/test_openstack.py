@@ -128,7 +128,6 @@ def test_create_servers_success(mock_openstack):
     mock_flavor.name = "rhel-10"
     mock_image = Mock(id="image-id-456")
 
-    # Mock the server object that gets created
     mock_server = Mock(
         id="server-id-789",
         status="ACTIVE",
@@ -140,16 +139,13 @@ def test_create_servers_success(mock_openstack):
     )
     mock_server.name = "test-server"
 
-    # Mock the keypairs properly
     mock_keypair = Mock()
     mock_keypair.name = "test-key"
     mock_compute.keypairs.return_value = [mock_keypair]
 
-    # Mock flavor and image finding
     mock_compute.find_flavor.return_value = mock_flavor
     mock_compute.find_image.return_value = mock_image
 
-    # Mock server creation and waiting
     mock_compute.create_server.return_value = mock_server
     mock_compute.wait_for_server.return_value = mock_server
 
@@ -219,7 +215,6 @@ def test_create_servers_invalid_flavor(mock_openstack):
     mock_keypair.name = "test-key"
     mock_compute.keypairs.return_value = [mock_keypair]
 
-    # Mock flavor finding to return None (not found)
     mock_compute.find_flavor.return_value = None
 
     mock_openstack.return_value.compute = mock_compute
@@ -249,7 +244,6 @@ def test_create_servers_invalid_image(mock_openstack):
     mock_flavor = Mock(id="flavor-id-123", name="rhel-10")
     mock_compute.find_flavor.return_value = mock_flavor
 
-    # Mock image finding to return None (not found)
     mock_compute.find_image.return_value = None
 
     mock_openstack.return_value.compute = mock_compute
@@ -281,7 +275,6 @@ def test_create_servers_resource_failure(mock_openstack):
     mock_compute.find_flavor.return_value = mock_flavor
     mock_compute.find_image.return_value = mock_image
 
-    # Mock server creation to raise ResourceFailure
     mock_compute.create_server.side_effect = ResourceFailure("VM creation failed")
 
     mock_openstack.return_value.compute = mock_compute
@@ -313,7 +306,6 @@ def test_create_servers_general_exception(mock_openstack):
     mock_compute.find_flavor.return_value = mock_flavor
     mock_compute.find_image.return_value = mock_image
 
-    # Mock server creation to raise general exception
     mock_compute.create_server.side_effect = Exception("General error")
 
     mock_openstack.return_value.compute = mock_compute
@@ -343,7 +335,6 @@ def test_create_servers_no_network(mock_openstack):
     mock_flavor = Mock(id="flavor-id-123", name="rhel-10")
     mock_image = Mock(id="image-id-456")
 
-    # Mock the server object
     mock_server = Mock(
         id="server-id-789",
         name="test-server",
@@ -378,7 +369,6 @@ def test_create_servers_no_network(mock_openstack):
     instance = instances[0]
     assert instance["network"] == "Default Network"
 
-    # Verify create_server was called with empty networks list
     mock_compute.create_server.assert_called_once_with(
         name="test-server",
         image_id="image-id-456",
@@ -399,7 +389,6 @@ def test_create_servers_floating_ip_priority(mock_openstack):
     mock_flavor = Mock(id="flavor-id-123", name="rhel-10")
     mock_image = Mock(id="image-id-456")
 
-    # Mock server with both floating and fixed IPs
     mock_server = Mock(
         id="server-id-789",
         name="test-server",
@@ -437,5 +426,4 @@ def test_create_servers_floating_ip_priority(mock_openstack):
     assert len(instances) == 1
 
     instance = instances[0]
-    # create_servers method only extracts fixed IP (first one found)
     assert instance["private_ip"] == "10.123.50.11"
