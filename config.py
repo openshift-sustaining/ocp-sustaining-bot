@@ -25,19 +25,32 @@ required_keys = [
     "ALLOWED_SLACK_USERS",
 ]
 
-# Load CA Cert to avoid SSL errors
 load_dotenv()
+req_env_vars = {
+    "RH_CA_BUNDLE_TEXT",
+    "VAULT_ENABLED_FOR_DYNACONF",
+    "VAULT_URL_FOR_DYNACONF",
+    "VAULT_SECRET_ID_FOR_DYNACONF",
+    "VAULT_ROLE_ID_FOR_DYNACONF",
+    "VAULT_MOUNT_POINT_FOR_DYNACONF",
+    "VAULT_PATH_FOR_DYNACONF",
+    "VAULT_KV_VERSION_FOR_DYNACONF",
+}
+
+vault_enabled = req_env_vars <= set(os.environ.keys())  # subset of os.environ
+
+# Load CA Cert to avoid SSL errors
 ca_bundle_file = tempfile.NamedTemporaryFile()
 with open(ca_bundle_file.name, "w") as f:
-    f.write(os.getenv("RH_CA_BUNDLE_TEXT"))
+    f.write(os.getenv("RH_CA_BUNDLE_TEXT", ""))
 
 try:
     config = Dynaconf(
         load_dotenv=True,  # This will load config from `.env`
         environment=False,  # This will disable layered env
-        vault_enabled=True,
+        vault_enabled=vault_enabled,
         vault={
-            "url": os.environ["VAULT_URL_FOR_DYNACONF"],
+            "url": os.getenv("VAULT_URL_FOR_DYNACONF", ""),
             "verify": ca_bundle_file.name,
         },
         envvar_prefix=False,  # This will make it so that ALL the variables from `.env` are loaded
