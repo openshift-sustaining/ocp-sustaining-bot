@@ -483,7 +483,7 @@ def handle_list_team_links(say, user):
     link_lines = "\n".join(
         [
             f":small_orange_diamond: *{title}:* <{url}|Link>"
-            for title, url in config.TEAM_LINKS.items()
+            for title, url in config.USEFUL_PROJECT_LINKS.items()
         ]
     )
 
