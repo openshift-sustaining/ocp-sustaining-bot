@@ -1,6 +1,6 @@
 import boto3
 from config import config
-from sdk.tools.helpers import get_values_for_key_from_dict_of_parameters
+from sdk.tools.helpers import get_list_of_values_for_key_in_dict_of_parameters
 import logging
 import random
 import string
@@ -31,18 +31,18 @@ class EC2Helper:
             ec2 = self.session.client("ec2")
 
             # instance ids to retrieve
-            instance_ids = get_values_for_key_from_dict_of_parameters(
+            instance_ids = get_list_of_values_for_key_in_dict_of_parameters(
                 "instance-ids", params_dict
             )
 
             filters = []
-            state_filters = get_values_for_key_from_dict_of_parameters(
+            state_filters = get_list_of_values_for_key_in_dict_of_parameters(
                 "state", params_dict
             )
             if state_filters:
                 filters.append({"Name": "instance-state-name", "Values": state_filters})
 
-            instance_type_filters = get_values_for_key_from_dict_of_parameters(
+            instance_type_filters = get_list_of_values_for_key_in_dict_of_parameters(
                 "type", params_dict
             )
             if instance_type_filters:
