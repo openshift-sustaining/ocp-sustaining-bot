@@ -480,34 +480,10 @@ def handle_list_team_links(say, user):
         blocks=helper_setup_slack_header_line(" Here are the important team links:"),
     )
 
-    important_links = [
-        ("Release Controller Page", "https://amd64.ocp.releases.ci.openshift.org/"),
-        (
-            "OCP Sustaining Confluence Space",
-            "https://spaces.redhat.com/display/SustainingEngineering/OpenShift+Sustaining+Engineering",
-        ),
-        (
-            "SE Operational Jira Dashboard",
-            "https://issues.redhat.com/secure/Dashboard.jspa",
-        ),
-        (
-            "OpenStack Login Page",
-            "https://cloud.psi.redhat.com/dashboard/project/instances/",
-        ),
-        (
-            "OCP SE Attendance Sheet",
-            "https://docs.google.com/spreadsheets/d/108tMw1JqGE7dqOmToo7G2MfvLMtfOxdkX5OXNW0OBt4/edit?gid=585683499#gid=585683499",
-        ),
-        (
-            "OCP Teams Tracker Sheet",
-            "https://docs.google.com/spreadsheets/d/1I0wzqmkBxSmoRtSCEBUe4nXHvPLQ3K959t8VWnOhurA/edit?gid=1529539181#gid=1529539181",
-        ),
-    ]
-
     link_lines = "\n".join(
         [
             f":small_orange_diamond: *{title}:* <{url}|Link>"
-            for title, url in important_links
+            for title, url in config.TEAM_LINKS.items()
         ]
     )
 
