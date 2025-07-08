@@ -36,7 +36,7 @@ def is_user_allowed(user_id: str) -> bool:
 @app.event("message")
 def mention_handler(body, say):
     user = body.get("event", {}).get("user")
-    if config.ALLOW_ALL_WORKSPACE_USERS != "1":
+    if config.ALLOW_ALL_WORKSPACE_USERS:
         if not is_user_allowed(user):
             say(
                 f"Sorry <@{user}>, you're not authorized to use this bot.Contact ocp-sustaining-admin@redhat.com for assistance."

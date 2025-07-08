@@ -41,7 +41,7 @@ cd ocp-sustaining-bot
 ```
 
 ### 2. Create a Virtual Environment
-It’s recommended to use a virtual environment to manage dependencies:
+It's recommended to use a virtual environment to manage dependencies:
 
 ```bash
 python3 -m venv .venv
@@ -77,16 +77,59 @@ python slack_main.py
 ```
 ## Slack Commands
 
-**/create-aws-cluster <cluster_name>**
+**create-aws-cluster <cluster_name>**
 Creates an AWS OpenShift cluster using the provided cluster_name.
 
-**/create-openstack-vm <name> <image> <flavor> <network>**
-Creates an OpenStack VM with the specified name, image, flavor, and network.
 
-**/hello**
+**create-aws-vm**
+Creates an AWS EC2 instance.
+
+Sample usage:
+```
+create-aws-vm --os_name=linux --instance_type=t2.micro --key_pair=new
+create-aws-vm --os_name=linux --instance_type=t2.micro --key_pair=existing
+```
+
+**list-aws-vms**
+Lists AWS EC2 instances
+
+Sample usage:
+```
+
+list-aws-vms --state=pending,running,shutting-down,terminated,stopping,stopped
+list-aws-vms --type=t3.micro,t2.micro
+list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped
+list-aws-vms --instance-ids=i-123456,i-987654
+
+```
+Note 1:
+The list of parameters that can be passed using the --type subcommand is extremely large. 
+See [https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instances.html](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instances.html) for the complete list.
+Search for t2.micro
+
+
+**create-openstack-vm <name> <image> <flavor> <network>**
+Creates an OpenStack VM with the specified name, os type, flavor, network and key name.
+
+Sample usage:
+```
+create-openstack-vm --name=PAYMENTGATEWAY1 --os_name=fedora --flavor=ci.cpu.small --network=provider_net_ocp_dev --key_name=sustaining-bot-key
+```
+
+
+**list-openstack-vms <status>**
+Lists OpenStack VMs.
+
+Sample usage:
+```
+list-openstack-vms -status=ACTIVE
+list-openstack-vms -status=ERROR
+```
+
+**hello**
 Greets the user with a friendly message.
 
-**/help**
+**help**
 Lists the available commands and how to use them.
 
 ## Event Handling
@@ -115,7 +158,7 @@ Feel free to fork the repository and submit pull requests. Contributions are wel
 
 ## Testing
 1. There is a dev slack bot namely : ocp-sustaining-bot is already created . Please get those credentials along with other cloud credentials of the slack bot.
-2. There is a testing slack workspace created : slackbot-template.slack.com . Please get added your user/mail to this by admin.
+2. There is a testing slack workspace created : slackbot-template.slack.com . Please get your user/mail added to this by the admin.
 3. Make sure you add your local .env file with all secrets to the repo root.
 4. Once you have your code changes ready then run the code locally using `python slack_main.py` 
 5. Then from the slackbot template workspace run your command by mention or direct message to test.
@@ -128,7 +171,7 @@ I will have those tasks added under our sustaining jira project soon.
 
 ## Backend Deployment
 
-1. As of 28th may 2025 slack backed docker is build manually and pushed to registry `quay.io/ocp_sustaining_engineering/slack_backend` which is also open source.This will be automated via a build pipeline soon.
+1. A build pipeline called "Create Docker Image for Slackbot" will create the docker image and push it to the registry `quay.io/ocp_sustaining_engineering/slack_backend` which is also open source.
 2. It runs as a docker container inside `project-tools` VM in our openstack cluster. 
    
 3. **Troubleshooting tips** :
