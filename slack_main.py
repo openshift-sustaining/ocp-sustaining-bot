@@ -14,6 +14,7 @@ from slack_handlers.handlers import (
     handle_create_aws_vm,
     handle_list_aws_vms,
     handle_list_team_links,
+    handle_aws_modify_vm,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,6 +74,9 @@ def mention_handler(body, say):
                 region,
                 app,  # pass `app` so that bot can send DM to users
                 params_dict,
+            ),
+            "aws-modify-vm": lambda: handle_aws_modify_vm(
+                say, region, user, params_dict
             ),
             "list-aws-vms": lambda: handle_list_aws_vms(say, region, user, params_dict),
             "list-team-links": lambda: handle_list_team_links(say, user),
