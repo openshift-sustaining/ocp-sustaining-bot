@@ -17,6 +17,14 @@ on:
         description: 'Minor Version'
         required: true
         default: "1"
+      push_when_critcal_errors_in_scan:
+        description: 'Push when Critical Errors in Scan'
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 jobs:
   build-and-push:
@@ -97,12 +105,82 @@ jobs:
         echo ::add-mask::$QUAY_USERNAME
         echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
 
-    - name: Build and push Docker image
+    - name: Build Docker image locally
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+        load: true
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      id: trivy-scan
+      with:
+        image-ref: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL'
+        exit-code: '1'
+
+    - name: Display Trivy scan results
+      if: always()
+      run: |
+        echo "=== Trivy Scan Results (All Severities) ==="
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image --format table \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
+        
+        echo "=== Trivy Scan Results (CRITICAL only) ==="
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image --severity CRITICAL --format table \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
+          
+        echo "=== Trivy Scan Results (UNKNOWN only) ==="
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image --severity UNKNOWN --format table \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
+
+    - name: Push Docker image to Quay if scan passed
+      if: steps.trivy-scan.outcome == 'success' || inputs.push_when_critcal_errors_in_scan == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+
+    - name: Check SARIF file contents
+      if: always()
+      run: |
+        echo "=== SARIF File Info ==="
+        if [ -f "trivy-results.sarif" ]; then
+          echo "SARIF file exists"
+          echo "File size: $(stat -c%s trivy-results.sarif) bytes"
+          echo "First 50000 characters of SARIF file:"
+          head -c 50000 trivy-results.sarif
+          echo ""
+          echo "=== SARIF Results Count ==="
+          # Count the number of results in the SARIF file
+          jq '.runs[].results | length' trivy-results.sarif 2>/dev/null || echo "Could not parse SARIF file"
+        else
+          echo "SARIF file does not exist"
+        fi
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Report scan results
+      if: always()
+      run: |
+        if [ "${{ steps.trivy-scan.outcome }}" == "success" ]; then
+          echo "✅ Trivy security scan passed. Docker image has been pushed to Quay."
+        else
+          echo "❌ Trivy security scan failed with critical severity vulnerabilities."
+          echo "Docker image was not pushed to the registry."
+        fi
 
     - name: Logout
       run: |
