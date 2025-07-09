@@ -117,6 +117,13 @@ create-openstack-vm --name=PAYMENTGATEWAY1 --os_name=fedora --flavor=ci.cpu.smal
 ```
 
 
+**/aws-modify-vm --stop --vm-id=<instance_id>**
+Stops a specific AWS EC2 instance by its instance ID. The instance can be restarted later.
+
+**/aws-modify-vm --delete --vm-id=<instance_id>**
+Deletes a specific AWS EC2 instance by its instance ID.
+
+
 **list-openstack-vms <status>**
 Lists OpenStack VMs.
 

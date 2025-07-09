@@ -1,6 +1,6 @@
 import boto3
 from config import config
-from sdk.tools.helpers import get_values_for_key_from_dict_of_parameters
+from sdk.tools.helpers import get_list_of_values_for_key_in_dict_of_parameters
 import logging
 import random
 import string
@@ -31,18 +31,18 @@ class EC2Helper:
             ec2 = self.session.client("ec2")
 
             # instance ids to retrieve
-            instance_ids = get_values_for_key_from_dict_of_parameters(
+            instance_ids = get_list_of_values_for_key_in_dict_of_parameters(
                 "instance-ids", params_dict
             )
 
             filters = []
-            state_filters = get_values_for_key_from_dict_of_parameters(
+            state_filters = get_list_of_values_for_key_in_dict_of_parameters(
                 "state", params_dict
             )
             if state_filters:
                 filters.append({"Name": "instance-state-name", "Values": state_filters})
 
-            instance_type_filters = get_values_for_key_from_dict_of_parameters(
+            instance_type_filters = get_list_of_values_for_key_in_dict_of_parameters(
                 "type", params_dict
             )
             if instance_type_filters:
@@ -314,3 +314,122 @@ class EC2Helper:
                 f"Couldn't delete keypair with name: {key_name}. Error:\n{result}"
             )
             return False
+
+    def stop_instance(self, instance_id: str):
+        """
+        Stop a specific EC2 instance by ID.
+
+        :param instance_id: The ID of the instance to stop
+        :return: Dictionary with operation status and details
+        """
+        try:
+            ec2_client = self.session.client("ec2")
+
+            response = ec2_client.describe_instances(InstanceIds=[instance_id])
+
+            if not response["Reservations"]:
+                return {"success": False, "error": f"Instance {instance_id} not found"}
+
+            instance = response["Reservations"][0]["Instances"][0]
+            current_state = instance["State"]["Name"]
+
+            if current_state == "stopped":
+                return {
+                    "success": False,
+                    "error": f"Instance {instance_id} is already stopped",
+                }
+
+            if current_state not in ["running", "pending"]:
+                return {
+                    "success": False,
+                    "error": f"Instance {instance_id} is in state '{current_state}' and cannot be stopped",
+                }
+
+            response = ec2_client.stop_instances(InstanceIds=[instance_id])
+
+            logger.info(f"Successfully initiated stop for instance {instance_id}")
+
+            return {
+                "success": True,
+                "instance_id": instance_id,
+                "previous_state": current_state,
+                "current_state": response["StoppingInstances"][0]["CurrentState"][
+                    "Name"
+                ],
+            }
+
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            error_message = e.response["Error"]["Message"]
+            logger.error(
+                f"AWS API error stopping instance {instance_id}: {error_code} - {error_message}"
+            )
+            return {"success": False, "error": f"AWS API error: {error_message}"}
+        except Exception as e:
+            logger.error(f"Unexpected error stopping instance {instance_id}: {str(e)}")
+            return {"success": False, "error": f"Unexpected error: {str(e)}"}
+
+    def terminate_instance(self, instance_id: str):
+        """
+        Terminate (delete) a specific EC2 instance by ID.
+
+        :param instance_id: The ID of the instance to terminate
+        :return: Dictionary with operation status and details
+        """
+        try:
+            ec2_client = self.session.client("ec2")
+
+            response = ec2_client.describe_instances(InstanceIds=[instance_id])
+
+            if not response["Reservations"]:
+                return {"success": False, "error": f"Instance {instance_id} not found"}
+
+            instance = response["Reservations"][0]["Instances"][0]
+            current_state = instance["State"]["Name"]
+
+            if current_state == "terminated":
+                return {
+                    "success": False,
+                    "error": f"Instance {instance_id} is already terminated",
+                }
+
+            if current_state == "terminating":
+                return {
+                    "success": False,
+                    "error": f"Instance {instance_id} is already being terminated",
+                }
+
+            instance_name = ""
+            for tag in instance.get("Tags", []):
+                if tag.get("Key") == "Name":
+                    instance_name = tag.get("Value")
+                    break
+
+            response = ec2_client.terminate_instances(InstanceIds=[instance_id])
+
+            logger.info(
+                f"Successfully initiated termination for instance {instance_id} (name: {instance_name})"
+            )
+
+            return {
+                "success": True,
+                "instance_id": instance_id,
+                "instance_name": instance_name,
+                "previous_state": current_state,
+                "current_state": response["TerminatingInstances"][0]["CurrentState"][
+                    "Name"
+                ],
+            }
+
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            error_message = e.response["Error"]["Message"]
+            logger.error(
+                f"AWS API error terminating instance {instance_id}: {error_code} - {error_message}"
+            )
+            return {"success": False, "error": f"AWS API error: {error_message}"}
+        except Exception as e:
+            logger.error(
+                f"Unexpected error terminating instance {instance_id}: {str(e)}"
+            )
+            return {"success": False, "error": f"Unexpected error: {str(e)}"}

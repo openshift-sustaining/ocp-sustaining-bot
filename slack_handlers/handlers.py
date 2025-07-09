@@ -1,6 +1,5 @@
 from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
-from sdk.tools.helpers import get_dict_of_command_parameters
 from config import config
 import logging
 import traceback
@@ -26,6 +25,8 @@ def handle_help(say, user):
             "`list-openstack-vms [--status=active,shutoff]` : List OpenStack VMs optionally filtered by status.\n"
             "`create-aws-vm <os_name> <instance_type> <key_pair=new,existing>` - Create an AWS EC2 instance.\n"
             "`list-aws-vms [--state=pending,running,stopped]` : List AWS VMs optionally filtered by state.\n"
+            "`aws-modify-vm --stop --vm-id=<id>` - Stop an AWS EC2 instance.\n"
+            "`aws-modify-vm --delete --vm-id=<id>` - Delete an AWS EC2 instance.\n"
         )
 
     except Exception as e:
@@ -33,15 +34,18 @@ def handle_help(say, user):
 
 
 # Helper function to handle creating an OpenStack VM
-def handle_create_openstack_vm(say, user, command_line):
+def handle_create_openstack_vm(say, user, params_dict):
     try:
-        command_params = get_dict_of_command_parameters(command_line)
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_create_openstack_vm"
+            )
 
         # Extract key params from command
-        name = command_params.get("name")
-        os_name = command_params.get("os_name")
-        flavor = command_params.get("flavor")
-        key_name = command_params.get("key_name")
+        name = params_dict.get("name")
+        os_name = params_dict.get("os_name")
+        flavor = params_dict.get("flavor")
+        key_name = params_dict.get("key_name")
 
         logger.info(
             f"Parsed Parameters: name={name}, os_name={os_name}, flavor={flavor}, key_name={key_name}"
@@ -50,7 +54,7 @@ def handle_create_openstack_vm(say, user, command_line):
         # Validate required fields
         required_params = ["name", "os_name", "flavor", "key_name"]
         missing_params = [
-            param for param in required_params if not command_params.get(param)
+            param for param in required_params if not params_dict.get(param)
         ]
 
         if missing_params:
@@ -141,10 +145,12 @@ def handle_create_openstack_vm(say, user, command_line):
 
 
 # Helper function to list OpenStack VMs with error handling
-def handle_list_openstack_vms(say, command_line=""):
+def handle_list_openstack_vms(say, params_dict):
     try:
-        # Extract parameters using the utility function
-        params_dict = get_dict_of_command_parameters(command_line)
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_list_openstack_vms"
+            )
 
         # Define valid status filters
         VALID_STATUSES = {"ACTIVE", "SHUTOFF", "ERROR"}
@@ -205,14 +211,16 @@ def handle_hello(say, user):
     say(f"Hello <@{user}>! How can I assist you today?")
 
 
-def handle_create_aws_vm(say, user, region, command_line, app):
+def handle_create_aws_vm(say, user, region, app, params_dict):
     try:
-        # Parse the command parameters
-        command_params = get_dict_of_command_parameters(command_line)
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_create_aws_vm"
+            )
 
-        os_name = command_params.get("os_name")
-        instance_type = command_params.get("instance_type")
-        key_pair = command_params.get("key_pair")
+        os_name = params_dict.get("os_name")
+        instance_type = params_dict.get("instance_type")
+        key_pair = params_dict.get("key_pair")
 
         # Log the parsed parameters for debugging purposes
         logger.info(
@@ -337,9 +345,7 @@ def handle_create_aws_vm(say, user, region, command_line, app):
 
     except Exception as e:
         # Log the error and provide a user-friendly message
-        logger.error(
-            f"An error occurred while creating the EC2 instance. Command line: {command_line}"
-        )
+        logger.error("An error occurred while creating the EC2 instance")
         logger.error(f"Error Details: {e}")
         logger.error(traceback.format_exc())
         say(
@@ -439,9 +445,12 @@ def helper_display_dict_output_as_table(instances_dict, print_keys, say, block_m
 
 
 # Helper function to list AWS EC2 instances
-def handle_list_aws_vms(say, region, user, command_line):
+def handle_list_aws_vms(say, region, user, params_dict):
     try:
-        params_dict = get_dict_of_command_parameters(command_line)
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_list_aws_vms"
+            )
 
         ec2_helper = EC2Helper(region=region)  # Set your region
         instances_dict = ec2_helper.list_instances(params_dict)
@@ -471,6 +480,91 @@ def handle_list_aws_vms(say, region, user, command_line):
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
+
+
+def handle_aws_modify_vm(say, region, user, params_dict):
+    """
+    Helper function to modify AWS EC2 instances (stop/delete)
+    """
+    try:
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_aws_modify_vm"
+            )
+
+        stop_action = params_dict.get("stop", False)
+        delete_action = params_dict.get("delete", False)
+        vm_id = params_dict.get("vm-id")
+
+        if not vm_id:
+            say(
+                ":warning: Missing required parameter `--vm-id`. Usage: `aws-modify-vm --stop --vm-id=<id>` or `aws-modify-vm --delete --vm-id=<id>`"
+            )
+            return
+
+        if not stop_action and not delete_action:
+            say(":warning: You must specify either `--stop` or `--delete` action.")
+            return
+
+        if stop_action and delete_action:
+            say(
+                ":warning: Please specify only one action: either `--stop` or `--delete`, not both."
+            )
+            return
+
+        ec2_helper = EC2Helper(region=region)
+
+        if stop_action:
+            logger.info(f"User {user} requested to stop instance {vm_id}")
+            say(f":hourglass_flowing_sand: Attempting to stop instance `{vm_id}`...")
+
+            result = ec2_helper.stop_instance(vm_id)
+
+            if result["success"]:
+                say(
+                    f":white_check_mark: *Successfully initiated stop for instance `{vm_id}`*\n"
+                    f"• Previous state: `{result['previous_state']}`\n"
+                    f"• Current state: `{result['current_state']}`\n"
+                    f"\n:information_source: The instance will take a moment to fully stop."
+                )
+            else:
+                logger.error(
+                    f"Failed to stop instance `{vm_id}`, error: {result['error']}"
+                )
+                say(f":x: *Failed to stop instance `{vm_id}`*")
+
+        elif delete_action:
+            logger.info(f"User {user} requested to terminate instance {vm_id}")
+
+            say(
+                f":warning: *Termination Warning*\n"
+                f"You are about to permanently terminate instance `{vm_id}`. This action cannot be undone.\n"
+                f":hourglass_flowing_sand: Proceeding with termination..."
+            )
+
+            result = ec2_helper.terminate_instance(vm_id)
+
+            if result["success"]:
+                instance_name = result.get("instance_name", "N/A")
+                say(
+                    f":white_check_mark: *Successfully initiated termination for instance `{vm_id}`*\n"
+                    f"• Instance name: `{instance_name}`\n"
+                    f"• Previous state: `{result['previous_state']}`\n"
+                    f"• Current state: `{result['current_state']}`\n"
+                    f"\n:information_source: The instance is being terminated and will be permanently deleted."
+                )
+            else:
+                logger.error(
+                    f"Failed to terminate instance `{vm_id}`, error: {result['error']}"
+                )
+                say(f":x: *Failed to terminate instance `{vm_id}`*")
+
+    except Exception as e:
+        logger.error(f"An error occurred while modifying EC2 instance: {e}")
+        logger.error(traceback.format_exc())
+        say(
+            ":x: An internal error occurred while modifying the EC2 instance. Please contact the administrator."
+        )
 
 
 # Helper function to list important team links
@@ -512,7 +606,7 @@ def _helper_select_keypair(
         logger.debug("No existing keys found.")
 
     if key_option == "new":
-        # Delete old key since we want to maintian only one key per user (per cloud)
+        # Delete old key since we want to maintain only one key per user (per cloud)
         if existing_key:
             success = cloud_sdk_obj.delete_keypair(key_name=user)
             if not success:

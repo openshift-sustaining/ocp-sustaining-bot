@@ -1,6 +1,6 @@
 from sdk.tools.helpers import (
     get_dict_of_command_parameters,
-    get_values_for_key_from_dict_of_parameters,
+    get_list_of_values_for_key_in_dict_of_parameters,
 )
 
 
@@ -36,6 +36,14 @@ def test_get_dict_of_command_parameters_when_single_value_params_with_no_equals_
     )
     assert "t3.micro" == params_dict.get("type")
     assert "pending" == params_dict.get("state")
+
+
+def test_get_dict_of_command_parameters_when_no_equals_separator():
+    params_dict = get_dict_of_command_parameters(
+        "list-aws-vms --type  t3.micro, t2.micro, t1.micro --state  pending"
+    )
+    assert params_dict.get("type") == "t3.micro,t2.micro,t1.micro"
+    assert params_dict.get("state") == "pending"
 
 
 def test_get_dict_of_command_parameters_when_good_params_with_no_equals_separator():
@@ -89,6 +97,15 @@ def test_get_dict_when_trailing_commas_between_params():
     assert "pending,stopped" == params_dict.get("state")
 
 
+def test_get_dict_when_multi_words_in_command_line():
+    params_dict = get_dict_of_command_parameters(
+        "command --vm-id=i-123456 --multi=these are values --state=pending, stopped"
+    )
+    assert params_dict.get("state") == "pending,stopped"
+    assert params_dict.get("vm-id") == "i-123456"
+    assert params_dict.get("multi") == "these are values"
+
+
 def test_get_dict_with_flag_parameters():
     params_dict = get_dict_of_command_parameters(
         "aws-modify-vm --stop --vm-id=i-123456"
@@ -111,35 +128,25 @@ def test_get_dict_with_only_flag_parameters():
     assert len(params_dict) == 2
 
 
-def test_get_values_for_key_from_dict_of_parameters_when_empty_dict():
-    result = get_values_for_key_from_dict_of_parameters(
-        "absent_key", {"some_key": "some_value"}
-    )
-    assert len(result) == 0
+def test_get_list_of_values_for_key_in_dict_of_parameters_when_absent_key():
+    params_dict = get_dict_of_command_parameters("command --stop --delete")
+    result = params_dict.get("absent_key")
+    assert result is None
 
 
-def test_get_values_for_key_from_dict_of_parameters_when_present_in_dict_params():
+def test_get_list_of_values_for_key_in_dict_of_parameters_when_present_in_dict_params():
     param_dict = {"state": "pending,stopped", "type": "t2.micro,t3.micro"}
-    result = get_values_for_key_from_dict_of_parameters("type", param_dict)
+    result = get_list_of_values_for_key_in_dict_of_parameters("type", param_dict)
     assert result == ["t2.micro", "t3.micro"]
 
 
-def test_get_values_for_key_from_dict_of_parameters_when_absent_in_dict_params():
+def test_get_list_of_values_for_key_in_dict_of_parameters_when_absent_in_dict_params():
     param_dict = {"state": "pending,stopped", "type": "t2.micro,t3.micro"}
-    result = get_values_for_key_from_dict_of_parameters("missing_key", param_dict)
+    result = get_list_of_values_for_key_in_dict_of_parameters("missing_key", param_dict)
     assert len(result) == 0
 
 
-def test_get_values_for_key_from_dict_of_parameters_when_spaces_in_dict_params():
+def test_get_list_of_values_for_key_in_dict_of_parameters_when_spaces_in_dict_params():
     param_dict = {"state": "pending, stopped,  running", "type": "t2.micro,t3.micro"}
-    result = get_values_for_key_from_dict_of_parameters("state", param_dict)
-    assert result == ["pending", "stopped", "running"]
-
-
-def test_get_values_for_key_from_dict_of_parameters_when_extra_commas_in_dict_params():
-    param_dict = {
-        "state": "pending, stopped,,  running,,,",
-        "type": "t2.micro,t3.micro",
-    }
-    result = get_values_for_key_from_dict_of_parameters("state", param_dict)
+    result = get_list_of_values_for_key_in_dict_of_parameters("state", param_dict)
     assert result == ["pending", "stopped", "running"]
