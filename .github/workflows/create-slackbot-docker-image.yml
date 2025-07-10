@@ -97,17 +97,17 @@ jobs:
         echo ::add-mask::$QUAY_USERNAME
         echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
 
-    - name: Build and push Docker image
+    - name: Build Docker image locally
       uses: docker/build-push-action@v5
       with:
         context: .
-        push: true
+        push: false
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+        load: true
 
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       id: trivy-scan
-      continue-on-error: true
       with:
         image-ref: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
         format: 'sarif'
@@ -115,27 +115,13 @@ jobs:
         severity: 'CRITICAL,HIGH'
         exit-code: '1'
 
-    - name: Delete Docker image if Trivy scan failed
-      if: steps.trivy-scan.outcome == 'failure'
-      run: |
-        echo "Trivy scan failed. Deleting the Docker image..."
-        QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
-        QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
-        
-        # Delete the tag from Quay.io
-        DELETE_URL="https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/${{ env.NEXT_TAG_VERSION }}"
-        
-        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X DELETE \
-          -u "$QUAY_USERNAME:$QUAY_PASSWORD" \
-          "$DELETE_URL")
-        
-        if [ "$HTTP_STATUS" -eq 204 ]; then
-          echo "Successfully deleted Docker image tag: ${{ env.NEXT_TAG_VERSION }}"
-        else
-          echo "Failed to delete Docker image. HTTP status: $HTTP_STATUS"
-          echo "This may be expected if the image was already deleted or doesn't exist."
-        fi
+    - name: Push Docker image to Quay if scan passed
+      if: success()
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v2
@@ -143,12 +129,15 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
-    - name: Fail workflow if Trivy scan failed
-      if: steps.trivy-scan.outcome == 'failure'
+    - name: Report scan results
+      if: always()
       run: |
-        echo "Trivy security scan failed with critical or high severity vulnerabilities."
-        echo "The Docker image has been deleted from the registry."
-        exit 1
+        if [ "${{ steps.trivy-scan.outcome }}" == "success" ]; then
+          echo "✅ Trivy security scan passed. Docker image has been pushed to Quay."
+        else
+          echo "❌ Trivy security scan failed with critical or high severity vulnerabilities."
+          echo "Docker image was not pushed to the registry."
+        fi
 
     - name: Logout
       run: |
