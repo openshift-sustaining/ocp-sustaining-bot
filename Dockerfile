@@ -9,6 +9,7 @@ COPY slack_handlers /app/slack_handlers/
 
 # Install build dependencies, then install Python packages, then remove build dependencies
 RUN apk add --no-cache --virtual .build-deps gcc musl-dev linux-headers python3-dev \
+    && apk upgrade libcrypto3 libssl3 \
     && pip install --no-cache-dir -r requirements.txt \
     && apk del .build-deps
 
