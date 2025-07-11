@@ -115,6 +115,19 @@ jobs:
         severity: 'CRITICAL'
         exit-code: '1'
 
+    - name: Display Trivy scan results
+      if: always()
+      run: |
+        echo "=== Trivy Scan Results (Table Format) ==="
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasecurity/trivy:latest image --severity CRITICAL --format table \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
+        
+        echo "=== Trivy Scan Results (JSON Format) ==="
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasecurity/trivy:latest image --severity CRITICAL --format json \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
+
     - name: Push Docker image to Quay if scan passed
       if: success()
       uses: docker/build-push-action@v5
@@ -122,6 +135,23 @@ jobs:
         context: .
         push: true
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+
+    - name: Check SARIF file contents
+      if: always()
+      run: |
+        echo "=== SARIF File Info ==="
+        if [ -f "trivy-results.sarif" ]; then
+          echo "SARIF file exists"
+          echo "File size: $(stat -c%s trivy-results.sarif) bytes"
+          echo "First 500 characters of SARIF file:"
+          head -c 500 trivy-results.sarif
+          echo ""
+          echo "=== SARIF Results Count ==="
+          # Count the number of results in the SARIF file
+          jq '.runs[].results | length' trivy-results.sarif 2>/dev/null || echo "Could not parse SARIF file"
+        else
+          echo "SARIF file does not exist"
+        fi
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
