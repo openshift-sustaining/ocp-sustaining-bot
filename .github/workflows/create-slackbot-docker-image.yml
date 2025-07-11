@@ -143,8 +143,8 @@ jobs:
         if [ -f "trivy-results.sarif" ]; then
           echo "SARIF file exists"
           echo "File size: $(stat -c%s trivy-results.sarif) bytes"
-          echo "First 500 characters of SARIF file:"
-          head -c 500 trivy-results.sarif
+          echo "First 50000 characters of SARIF file:"
+          head -c 50000 trivy-results.sarif
           echo ""
           echo "=== SARIF Results Count ==="
           # Count the number of results in the SARIF file
