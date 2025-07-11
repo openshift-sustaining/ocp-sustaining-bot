@@ -17,6 +17,13 @@ from slack_handlers.handlers import (
     handle_aws_modify_vm,
 )
 
+# Configure logging to output to stdout
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+
 logger = logging.getLogger(__name__)
 
 app = App(token=config.SLACK_BOT_TOKEN)
@@ -97,6 +104,6 @@ def mention_handler(body, say):
 
 # Main Entry Point
 if __name__ == "__main__":
-    logger.info("Starting Slack bot...")
+    logger.info("DMDM ! Starting Slack bot...")
     handler = SocketModeHandler(app, config.SLACK_APP_TOKEN)
     handler.start()
