@@ -5,6 +5,7 @@ from sdk.tools.helpers import get_dict_of_command_parameters
 import logging
 import json
 import sys
+import os
 
 from slack_handlers.handlers import (
     handle_help,
@@ -17,14 +18,30 @@ from slack_handlers.handlers import (
     handle_aws_modify_vm,
 )
 
-# Configure logging to output to stdout
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
-)
+# Configure logging - force stdout in containerized environments
+def setup_logging():
+    """Configure logging for the application."""
+    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+    
+    # Force stdout logging in Docker containers
+    if os.getenv('DOCKER_CONTAINER') or os.path.exists('/.dockerenv'):
+        logging.basicConfig(
+            level=getattr(logging, log_level, logging.INFO),
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            stream=sys.stdout,
+            force=True
+        )
+    else:
+        # Default logging setup for non-containerized environments
+        logging.basicConfig(
+            level=getattr(logging, log_level, logging.INFO),
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
 
+# Set up logging early
+setup_logging()
 logger = logging.getLogger(__name__)
+logger.info("Starting Slack bot...")
 
 app = App(token=config.SLACK_BOT_TOKEN)
 
