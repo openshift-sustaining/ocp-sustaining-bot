@@ -128,17 +128,17 @@ jobs:
       run: |
         echo "=== Trivy Scan Results (All Severities) ==="
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasecurity/trivy:latest image --format table \
+          aquasec/trivy:latest image --format table \
           ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
         
         echo "=== Trivy Scan Results (CRITICAL only) ==="
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasecurity/trivy:latest image --severity CRITICAL --format table \
+          aquasec/trivy:latest image --severity CRITICAL --format table \
           ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
           
         echo "=== Trivy Scan Results (UNKNOWN only) ==="
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasecurity/trivy:latest image --severity UNKNOWN --format table \
+          aquasec/trivy:latest image --severity UNKNOWN --format table \
           ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
 
     - name: Push Docker image to Quay if scan passed
