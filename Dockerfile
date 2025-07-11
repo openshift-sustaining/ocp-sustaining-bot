@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-alpine
 
 WORKDIR /app
 
@@ -9,6 +9,9 @@ COPY slack_handlers /app/slack_handlers/
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Remove zlib and compression libraries if not needed
+# RUN apk del zlib zlib-dev
 
 # Run the app
 CMD ["python", "slack_main.py"]
