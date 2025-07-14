@@ -7,7 +7,7 @@ command handlers to store their help information alongside their implementation.
 
 import logging
 from functools import wraps
-from typing import Dict, List, Optional, Callable, Any, Union
+from typing import Dict, List, Optional, Callable, Any
 from config import config
 
 logger = logging.getLogger(__name__)

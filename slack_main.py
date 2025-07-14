@@ -8,7 +8,6 @@ import json
 import sys
 
 from slack_handlers.handlers import (
-    handle_help,
     handle_create_openstack_vm,
     handle_list_openstack_vms,
     handle_hello,
