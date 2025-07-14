@@ -1,6 +1,15 @@
 from sdk.aws.ec2 import EC2Helper
 from sdk.openstack.core import OpenStackHelper
 from config import config
+from sdk.tools.help_system import (
+    command_meta,
+    handle_help_command,
+    check_help_flag,
+    get_openstack_os_names,
+    get_openstack_statuses,
+    get_aws_instance_states,
+    get_aws_instance_types,
+)
 import logging
 import traceback
 
@@ -9,31 +18,56 @@ logger = logging.getLogger(__name__)
 
 
 # Helper function to handle the "help" command
-def handle_help(say, user):
-    try:
-        logger.info(
-            f"Help command invoked by user: {user}. Sending list of available commands."
-        )
-        say(
-            f"Hello <@{user}>! Here's what I can help you with:\n\n"
-            "*Available Commands:*\n"
-            "`hello` - Greet the bot.\n"
-            "`help` - Show this help message.\n"
-            "`list-team-links` - Display important team links.\n"
-            "`create-openstack-vm <name> <image> <flavor> <network>` - Create an OpenStack VM.\n"
-            "`list-openstack-vms [--status=active,shutoff]` : List OpenStack VMs optionally filtered by status.\n"
-            "`create-aws-vm <os_name> <instance_type> <key_pair=new,existing>` - Create an AWS EC2 instance.\n"
-            "`list-aws-vms [--state=pending,running,stopped]` : List AWS VMs optionally filtered by state.\n"
-            "`aws-modify-vm --stop --vm-id=<id>` - Stop an AWS EC2 instance.\n"
-            "`aws-modify-vm --delete --vm-id=<id>` - Delete an AWS EC2 instance.\n"
-        )
-
-    except Exception as e:
-        logger.error(f"Error in handle_help: {e}")
+@command_meta(
+    name="help",
+    description="Show help information for commands",
+    arguments={
+        "command": {
+            "description": "Specific command to get help for",
+            "required": False,
+            "type": "str",
+        }
+    },
+    examples=["help", "help create-openstack-vm"],
+)
+def handle_help(say, user, command_name=None):
+    """Handle help command using the new help system."""
+    handle_help_command(say, user, command_name)
 
 
 # Helper function to handle creating an OpenStack VM
+@command_meta(
+    name="create-openstack-vm",
+    description="Create an OpenStack VM with specified configuration",
+    arguments={
+        "name": {"description": "Name for the VM", "required": True, "type": "str"},
+        "os_name": {
+            "description": "Operating system name",
+            "required": True,
+            "type": "str",
+            "choices": get_openstack_os_names,
+        },
+        "flavor": {
+            "description": "VM flavor/size (e.g., ci.cpu.small)",
+            "required": True,
+            "type": "str",
+        },
+        "key_name": {
+            "description": "SSH key name for access",
+            "required": True,
+            "type": "str",
+        },
+    },
+    examples=[
+        "create-openstack-vm --name=myvm --os_name=fedora --flavor=ci.cpu.small --key_name=my-key"
+    ],
+)
 def handle_create_openstack_vm(say, user, params_dict):
+    # Check for help flag
+    if check_help_flag(params_dict):
+        handle_help_command(say, user, "create-openstack-vm")
+        return
+
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -65,7 +99,7 @@ def handle_create_openstack_vm(say, user, params_dict):
             return
 
         # Normalize OS name and retrieve corresponding image ID
-        os_name_lower = os_name.strip().lower()
+        os_name_lower = os_name.strip().lower() if os_name else ""
         image_id = config.OS_IMAGE_MAP.get(os_name_lower)
 
         if not image_id:
@@ -144,7 +178,30 @@ def handle_create_openstack_vm(say, user, params_dict):
 
 
 # Helper function to list OpenStack VMs with error handling
+@command_meta(
+    name="list-openstack-vms",
+    description="List OpenStack VMs with optional status filtering",
+    arguments={
+        "status": {
+            "description": "Filter VMs by status",
+            "required": False,
+            "type": "str",
+            "choices": get_openstack_statuses,
+            "default": "ACTIVE",
+        }
+    },
+    examples=[
+        "list-openstack-vms",
+        "list-openstack-vms --status=ACTIVE",
+        "list-openstack-vms --status=SHUTOFF",
+    ],
+)
 def handle_list_openstack_vms(say, params_dict):
+    # Check for help flag
+    if check_help_flag(params_dict):
+        handle_help_command(say, None, "list-openstack-vms")
+        return
+
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -205,12 +262,46 @@ def handle_list_openstack_vms(say, params_dict):
 
 
 # Helper function to handle greeting
+@command_meta(name="hello", description="Greet the bot", examples=["hello"])
 def handle_hello(say, user):
     logger.info(f"Saying hello back to user {user}")
     say(f"Hello <@{user}>! How can I assist you today?")
 
 
+@command_meta(
+    name="create-aws-vm",
+    description="Create an AWS EC2 instance",
+    arguments={
+        "os_name": {
+            "description": "Operating system name",
+            "required": True,
+            "type": "str",
+            "choices": ["linux"],
+        },
+        "instance_type": {
+            "description": "EC2 instance type",
+            "required": True,
+            "type": "str",
+            "choices": get_aws_instance_types,
+        },
+        "key_pair": {
+            "description": "Key pair option",
+            "required": True,
+            "type": "str",
+            "choices": ["new", "existing"],
+        },
+    },
+    examples=[
+        "create-aws-vm --os_name=linux --instance_type=t2.micro --key_pair=new",
+        "create-aws-vm --os_name=linux --instance_type=t3.small --key_pair=existing",
+    ],
+)
 def handle_create_aws_vm(say, user, region, app, params_dict):
+    # Check for help flag
+    if check_help_flag(params_dict):
+        handle_help_command(say, user, "create-aws-vm")
+        return
+
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -242,13 +333,13 @@ def handle_create_aws_vm(say, user, region, app, params_dict):
             return
 
         # Key pair should be either 'new' or 'existing'
-        key_pair = key_pair.strip().lower()
+        key_pair = key_pair.strip().lower() if key_pair else ""
         if key_pair not in {"new", "existing"}:
             say(":warning: `key_pair` should be either `new` or `existing`")
             return
 
         # Ensure os_name is either 'Linux' or 'linux'
-        if os_name.strip().lower() == "linux":
+        if os_name and os_name.strip().lower() == "linux":
             logger.info(f"Operating System selected: {os_name}")
 
             # Use the hardcoded AMI ID for Amazon Linux
@@ -444,7 +535,41 @@ def helper_display_dict_output_as_table(instances_dict, print_keys, say, block_m
 
 
 # Helper function to list AWS EC2 instances
+@command_meta(
+    name="list-aws-vms",
+    description="List AWS EC2 instances with optional filtering",
+    arguments={
+        "state": {
+            "description": "Filter instances by state",
+            "required": False,
+            "type": "str",
+            "choices": get_aws_instance_states,
+        },
+        "type": {
+            "description": "Filter instances by type",
+            "required": False,
+            "type": "str",
+            "choices": get_aws_instance_types,
+        },
+        "instance-ids": {
+            "description": "Comma-separated list of instance IDs",
+            "required": False,
+            "type": "str",
+        },
+    },
+    examples=[
+        "list-aws-vms",
+        "list-aws-vms --state=running,stopped",
+        "list-aws-vms --type=t2.micro,t3.small",
+        "list-aws-vms --instance-ids=i-123456,i-789012",
+    ],
+)
 def handle_list_aws_vms(say, region, user, params_dict):
+    # Check for help flag
+    if check_help_flag(params_dict):
+        handle_help_command(say, user, "list-aws-vms")
+        return
+
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -481,10 +606,36 @@ def handle_list_aws_vms(say, region, user, params_dict):
         say("An internal error occurred, please contact administrator.")
 
 
+@command_meta(
+    name="aws-modify-vm",
+    description="Stop or delete AWS EC2 instances",
+    arguments={
+        "vm-id": {
+            "description": "Instance ID to modify",
+            "required": True,
+            "type": "str",
+        },
+        "stop": {"description": "Stop the instance", "required": False, "type": "bool"},
+        "delete": {
+            "description": "Delete the instance",
+            "required": False,
+            "type": "bool",
+        },
+    },
+    examples=[
+        "aws-modify-vm --stop --vm-id=i-1234567890abcdef0",
+        "aws-modify-vm --delete --vm-id=i-1234567890abcdef0",
+    ],
+)
 def handle_aws_modify_vm(say, region, user, params_dict):
     """
     Helper function to modify AWS EC2 instances (stop/delete)
     """
+    # Check for help flag
+    if check_help_flag(params_dict):
+        handle_help_command(say, user, "aws-modify-vm")
+        return
+
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -567,6 +718,11 @@ def handle_aws_modify_vm(say, region, user, params_dict):
 
 
 # Helper function to list important team links
+@command_meta(
+    name="list-team-links",
+    description="Display important team links",
+    examples=["list-team-links"],
+)
 def handle_list_team_links(say, user):
     say(
         text=".",

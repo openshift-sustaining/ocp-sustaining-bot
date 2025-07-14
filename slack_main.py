@@ -2,6 +2,7 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
 from sdk.tools.helpers import get_dict_of_command_parameters
+from sdk.tools.help_system import handle_help_command, check_help_flag
 import logging
 import json
 import sys
@@ -61,8 +62,25 @@ def mention_handler(body, say):
         # Extract parameters using the utility function
         params_dict = get_dict_of_command_parameters(command_line)
 
+        # Check if this is a help request for a specific command
+        if check_help_flag(params_dict):
+            handle_help_command(say, user, cmd)
+            return
+
+        # Check if this is a help request (with or without specific command)
+        if cmd == "help":
+            # Extract the target command name from the command line
+            # Handle both "@bot help command" and "help command" formats
+            words = command_line.split()
+            if len(words) > 1:
+                command_name = words[1].lower()
+                handle_help_command(say, user, command_name)
+            else:
+                # Just "help" - show all commands
+                handle_help_command(say, user)
+            return
+
         commands = {
-            "help": lambda: handle_help(say, user),
             "create-openstack-vm": lambda: handle_create_openstack_vm(
                 say, user, params_dict
             ),
