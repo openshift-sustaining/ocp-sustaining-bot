@@ -17,8 +17,8 @@ on:
         description: 'Minor Version'
         required: true
         default: "1"
-      override_errors_in_scan:
-        description: 'Override Errors in Scan'
+      push_when_critcal_errors_in_scan:
+        description: 'Push when Critical Errors in Scan'
         required: true
         default: "false"
         type: choice
@@ -142,7 +142,7 @@ jobs:
           ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
 
     - name: Push Docker image to Quay if scan passed
-      if: steps.trivy-scan.outcome == 'success' || inputs.override_errors_in_scan == 'true'
+      if: steps.trivy-scan.outcome == 'success' || inputs.push_when_critcal_errors_in_scan == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
