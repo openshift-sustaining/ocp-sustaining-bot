@@ -18,37 +18,31 @@ from slack_handlers.handlers import (
     handle_aws_modify_vm,
 )
 
-# Configure logging - force stdout in containerized environments
 def setup_logging():
     """Configure logging for the application."""
-    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+    log_level = getattr(config, 'LOG_LEVEL', 'INFO').upper()
+    is_running_as_docker = os.getenv('DOCKER_CONTAINER') or os.path.exists('/.dockerenv')
     
     # Force stdout logging in Docker containers
-    if os.getenv('DOCKER_CONTAINER') or os.path.exists('/.dockerenv'):
-        logging.basicConfig(
-            level=getattr(logging, log_level, logging.INFO),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            stream=sys.stdout,
-            force=True
-        )
-    else:
-        # Default logging setup for non-containerized environments
-        logging.basicConfig(
-            level=getattr(logging, log_level, logging.INFO),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        stream=sys.stdout if is_running_as_docker else None,
+        force=True
+    )
+    logger_instance = logging.getLogger(__name__)
+    logger_instance.info("Starting Slack bot...")
+    return logger_instance
+
 
 # Set up logging early
-setup_logging()
-logger = logging.getLogger(__name__)
-logger.info("Starting Slack bot...")
-
+logger = setup_logging()
 app = App(token=config.SLACK_BOT_TOKEN)
 
 try:
     ALLOWED_SLACK_USERS = config.ALLOWED_SLACK_USERS
 except json.JSONDecodeError:
-    logging.error("ALLOWED_SLACK_USERS must be a valid JSON string.")
+    logger.error("ALLOWED_SLACK_USERS must be a valid JSON string.")
     sys.exit(1)
 
 
@@ -121,6 +115,6 @@ def mention_handler(body, say):
 
 # Main Entry Point
 if __name__ == "__main__":
-    logger.info("DMDM ! Starting Slack bot...")
+    logger.info("Starting Slack bot...")
     handler = SocketModeHandler(app, config.SLACK_APP_TOKEN)
     handler.start()
