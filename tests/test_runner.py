@@ -4,7 +4,7 @@ from pytest import Pytester
 class TestRunner(object):
     def test_handlers(self, pytester: Pytester) -> None:
         """Test the slack handlers."""
-        pytester.copy_example("test_handlers.py")
+        pytester.copy_example("tests/test_handlers.py")
         result = pytester.runpytest()
         outcomes = result.parseoutcomes()
         assert "failed" not in outcomes.keys(), (
