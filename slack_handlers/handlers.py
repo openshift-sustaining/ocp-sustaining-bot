@@ -4,7 +4,6 @@ from config import config
 from sdk.tools.help_system import (
     command_meta,
     handle_help_command,
-    check_help_flag,
     get_openstack_os_names,
     get_openstack_statuses,
     get_aws_instance_states,
@@ -63,11 +62,6 @@ def handle_help(say, user, command_name=None):
     ],
 )
 def handle_create_openstack_vm(say, user, params_dict):
-    # Check for help flag
-    if check_help_flag(params_dict):
-        handle_help_command(say, user, "create-openstack-vm")
-        return
-
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -197,11 +191,6 @@ def handle_create_openstack_vm(say, user, params_dict):
     ],
 )
 def handle_list_openstack_vms(say, params_dict):
-    # Check for help flag
-    if check_help_flag(params_dict):
-        handle_help_command(say, None, "list-openstack-vms")
-        return
-
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -297,11 +286,6 @@ def handle_hello(say, user):
     ],
 )
 def handle_create_aws_vm(say, user, region, app, params_dict):
-    # Check for help flag
-    if check_help_flag(params_dict):
-        handle_help_command(say, user, "create-aws-vm")
-        return
-
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -565,11 +549,6 @@ def helper_display_dict_output_as_table(instances_dict, print_keys, say, block_m
     ],
 )
 def handle_list_aws_vms(say, region, user, params_dict):
-    # Check for help flag
-    if check_help_flag(params_dict):
-        handle_help_command(say, user, "list-aws-vms")
-        return
-
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -631,11 +610,6 @@ def handle_aws_modify_vm(say, region, user, params_dict):
     """
     Helper function to modify AWS EC2 instances (stop/delete)
     """
-    # Check for help flag
-    if check_help_flag(params_dict):
-        handle_help_command(say, user, "aws-modify-vm")
-        return
-
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(

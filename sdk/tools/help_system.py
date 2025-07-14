@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 # Global command registry: command name -> function
 COMMAND_REGISTRY: Dict[str, Callable] = {}
 
+# Cached help text for performance
+_CACHED_HELP_TEXT: Optional[str] = None
+
 
 def command_meta(
     name: str,
@@ -195,6 +198,60 @@ def format_command_help(command_name: str, detailed: bool = False) -> str:
     return "\n".join(help_text).strip()
 
 
+def _build_general_help_text() -> str:
+    """
+    Build the general help text with all commands.
+    This is cached for performance since commands don't change after startup.
+    """
+    help_lines = ["*Available Commands:*"]
+
+    # Get unique commands (excluding aliases)
+    unique_commands = {}
+    for cmd_name, func in COMMAND_REGISTRY.items():
+        if cmd_name not in unique_commands:
+            unique_commands[cmd_name] = func
+
+    # Sort commands alphabetically
+    sorted_commands = sorted(unique_commands.items())
+
+    for cmd_name, func in sorted_commands:
+        # Format command with arguments for display
+        arguments = getattr(func, "_command_arguments", {})
+        description = getattr(func, "_command_description", "No description available")
+
+        # Build command usage string
+        usage_parts = [cmd_name]
+        for arg_name, arg_info in arguments.items():
+            if arg_info.get("required", False):
+                usage_parts.append(f"<{arg_name}>")
+            else:
+                usage_parts.append(f"[{arg_name}]")
+
+        command_usage = " ".join(usage_parts)
+        help_lines.append(f"`{command_usage}` - {description}")
+
+    help_lines.extend(
+        [
+            "",
+            "For detailed help on any command, use: `help <command-name>` or `<command-name> --help`",
+            "",
+            "Example: `help create-openstack-vm` or `create-openstack-vm --help`",
+        ]
+    )
+
+    return "\n".join(help_lines)
+
+
+def get_cached_general_help() -> str:
+    """
+    Get cached general help text, building it if not already cached.
+    """
+    global _CACHED_HELP_TEXT
+    if _CACHED_HELP_TEXT is None:
+        _CACHED_HELP_TEXT = _build_general_help_text()
+    return _CACHED_HELP_TEXT
+
+
 def handle_help_command(
     say, user: Optional[str] = None, command_name: Optional[str] = None
 ):
@@ -232,50 +289,10 @@ def handle_help_command(
                         f"{greeting}Command `{command_name}` not found. Use `help` to see all available commands."
                     )
         else:
-            # Show all commands
+            # Show all commands using cached help text
             greeting = f"Hello <@{user}>! " if user else "Hello! "
-            help_text = [
-                f"{greeting}Here's what I can help you with:\n",
-                "*Available Commands:*",
-            ]
-
-            # Get unique commands (excluding aliases)
-            unique_commands = {}
-            for cmd_name, func in COMMAND_REGISTRY.items():
-                if cmd_name not in unique_commands:
-                    unique_commands[cmd_name] = func
-
-            # Sort commands alphabetically
-            sorted_commands = sorted(unique_commands.items())
-
-            for cmd_name, func in sorted_commands:
-                # Format command with arguments for display
-                arguments = getattr(func, "_command_arguments", {})
-                description = getattr(
-                    func, "_command_description", "No description available"
-                )
-
-                # Build command usage string
-                usage_parts = [cmd_name]
-                for arg_name, arg_info in arguments.items():
-                    if arg_info.get("required", False):
-                        usage_parts.append(f"<{arg_name}>")
-                    else:
-                        usage_parts.append(f"[{arg_name}]")
-
-                command_usage = " ".join(usage_parts)
-                help_text.append(f"`{command_usage}` - {description}")
-
-            help_text.extend(
-                [
-                    "",
-                    "For detailed help on any command, use: `help <command-name>` or `<command-name> --help`",
-                    "",
-                    "Example: `help create-openstack-vm` or `create-openstack-vm --help`",
-                ]
-            )
-
-            say("\n".join(help_text))
+            cached_help = get_cached_general_help()
+            say(f"{greeting}Here's what I can help you with:\n\n{cached_help}")
 
     except Exception as e:
         logger.error(f"Error in handle_help_command: {e}")
