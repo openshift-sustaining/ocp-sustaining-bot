@@ -40,7 +40,7 @@ def command_meta(
         Decorated function with help metadata attached
     """
 
-    def decorator(func):
+    def attach_metadata(func):
         # Store metadata on the function as attributes
         func._command_description = description
         func._command_arguments = arguments or {}
@@ -61,7 +61,7 @@ def command_meta(
 
         return wrapper
 
-    return decorator
+    return attach_metadata
 
 
 def get_dynamic_value(value_or_callable):
@@ -104,6 +104,7 @@ def get_aws_instance_states():
 
 def get_aws_instance_types():
     """Get common AWS instance types."""
+    # TODO: Confirm with team before expanding to include m5 instances
     return [
         "t2.micro",
         "t2.small",
@@ -111,8 +112,6 @@ def get_aws_instance_types():
         "t3.micro",
         "t3.small",
         "t3.medium",
-        "m5.large",
-        "m5.xlarge",
     ]
 
 
