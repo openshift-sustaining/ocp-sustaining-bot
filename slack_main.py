@@ -81,7 +81,7 @@ def mention_handler(body, say):
 
         commands = {
             "create-openstack-vm": lambda: handle_create_openstack_vm(
-                say, user, params_dict
+                say, user, app, params_dict
             ),
             "list-openstack-vms": lambda: handle_list_openstack_vms(say, params_dict),
             "hello": lambda: handle_hello(say, user),
