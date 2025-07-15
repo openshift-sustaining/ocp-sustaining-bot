@@ -23,15 +23,25 @@ def setup_logging():
     log_level = getattr(config, 'LOG_LEVEL', 'INFO').upper()
     is_running_as_docker = os.getenv('DOCKER_CONTAINER') or os.path.exists('/.dockerenv')
     
+    # Convert string level to numeric level
+    numeric_level = getattr(logging, log_level, logging.INFO)
+    
     # Force stdout logging in Docker containers
     logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
+        level=numeric_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         stream=sys.stdout if is_running_as_docker else None,
         force=True
     )
+    
+    # Get logger instance
     logger_instance = logging.getLogger(__name__)
-    logger_instance.info("Starting Slack bot...")
+    
+    # Debug information to help troubleshoot
+    # print(f"DEBUG: Configured log level: {log_level} (numeric: {numeric_level})")
+    # print(f"DEBUG: Running in Docker: {is_running_as_docker}")
+    # print(f"DEBUG: Logger handlers: {logging.getLogger().handlers}")
+    
     return logger_instance
 
 
@@ -115,6 +125,6 @@ def mention_handler(body, say):
 
 # Main Entry Point
 if __name__ == "__main__":
-    logger.info("Starting Slack bot...")
+    logger.info("Starting Slack bot with Socket Mode handler...")
     handler = SocketModeHandler(app, config.SLACK_APP_TOKEN)
     handler.start()
