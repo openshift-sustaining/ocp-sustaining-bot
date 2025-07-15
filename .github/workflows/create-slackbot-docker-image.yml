@@ -162,8 +162,6 @@ jobs:
         context: .
         push: true
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
 
     - name: Check SARIF file contents
       if: always()
