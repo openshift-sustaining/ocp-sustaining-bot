@@ -118,6 +118,11 @@ def handle_create_openstack_vm(say, user, params_dict):
 
         logger.info(f"Using Image ID: {image_id} and Network ID: {network_id}")
 
+        if key_pair not in ("new", "open"):
+            say("`key_pair` should either be `new` or `open`.")
+            logger.debug(f"invalid `key_pair` value: {key_pair}")
+            return
+
         say(
             ":hourglass_flowing_sand: Now processing your request for an OpenStack VM... Please wait."
         )
@@ -126,6 +131,13 @@ def handle_create_openstack_vm(say, user, params_dict):
         key_pair = _helper_select_keypair(
             key_pair, user, app, "OpenStack", image_id, flavor, say, openstack_helper
         )
+
+        if not key_pair:
+            logging.error(
+                f"Fetching/creating Openstack keypair failed for user {user} Aborting."
+            )
+            say("Some problem occurred during keypair selection. Aborting VM creation")
+            return
 
         response = openstack_helper.create_servers(
             name, image_id, flavor, key_pair["KeyName"], network_id
@@ -756,8 +768,8 @@ def _helper_select_keypair(
         # DM user with private key
         app.client.chat_postMessage(
             channel=user,
-            text=f"New key created:\n```{new_key['KeyMaterial']}```\n"
-            + f"Cloud: {cloud_type}, OS: {os_name}, Instance: {instance_type}",
+            text=f"""New key created:\n```{new_key["KeyMaterial"]}```
+                  Cloud: {cloud_type}, OS: {os_name}, Instance: {instance_type}""",
         )
         logger.debug("Sent private key in user DM.")
         say("Please check DM for the newly generated private key.")
