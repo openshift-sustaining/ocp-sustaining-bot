@@ -6,6 +6,7 @@ from sdk.tools.help_system import (
     handle_help_command,
     get_openstack_os_names,
     get_openstack_statuses,
+    get_openstack_flavors,
     get_aws_instance_states,
     get_aws_instance_types,
 )
@@ -50,6 +51,7 @@ def handle_help(say, user, command_name=None):
             "description": "VM flavor/size (e.g., ci.cpu.small)",
             "required": True,
             "type": "str",
+            "choices": get_openstack_flavors,
         },
         "key_name": {
             "description": "SSH key name for access",

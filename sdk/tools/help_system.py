@@ -97,6 +97,39 @@ def get_openstack_statuses():
     return ["ACTIVE", "SHUTOFF", "ERROR"]
 
 
+def get_openstack_flavors():
+    """Get common OpenStack flavors."""
+    return [
+        # Standard m1.* flavors
+        "m1.tiny",
+        "m1.small",
+        "m1.medium",
+        "m1.large",
+        "m1.xlarge",
+        # CI flavors
+        "ci.cpu.small",
+        "ci.cpu.medium",
+        "ci.cpu.large",
+        # General purpose flavors
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t3.micro",
+        "t3.small",
+        "t3.medium",
+        # Compute optimized flavors
+        "c5.large",
+        "c5.xlarge",
+        "c5.2xlarge",
+        # Memory optimized flavors
+        "r5.large",
+        "r5.xlarge",
+        # Storage optimized flavors
+        "i3.large",
+        "i3.xlarge",
+    ]
+
+
 def get_aws_instance_states():
     """Get valid AWS instance states."""
     return ["pending", "running", "shutting-down", "terminated", "stopping", "stopped"]
