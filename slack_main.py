@@ -6,6 +6,7 @@ from sdk.tools.help_system import handle_help_command, check_help_flag
 import logging
 import json
 import sys
+import os
 
 from slack_handlers.handlers import (
     handle_create_openstack_vm,
