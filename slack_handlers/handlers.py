@@ -57,13 +57,14 @@ def handle_help(say, user, command_name=None):
             "description": "Whether to use new or existing keypair",
             "required": True,
             "type": "str",
+            "choices": ['new', 'existing']
         },
     },
     examples=[
-        "create-openstack-vm --name=myvm --os_name=fedora --flavor=ci.cpu.small --key_pair=new|existing"
+        "create-openstack-vm --name=myvm --os_name=fedora --flavor=ci.cpu.small --key_pair=new"
     ],
 )
-def handle_create_openstack_vm(say, user, params_dict):
+def handle_create_openstack_vm(say, user, app, params_dict):
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -89,7 +90,7 @@ def handle_create_openstack_vm(say, user, params_dict):
         if missing_params:
             say(
                 f":warning: Missing required parameters: {', '.join(missing_params)}. "
-                f"Usage: create-openstack-vm --name=<name> --os_name=<os_name> --flavor=<flavor> --key_pair=<new,existing>\n"
+                f"Usage: create-openstack-vm --name=<name> --os_name=<os_name> --flavor=<flavor> --key_pair=[new|existing]\n"
                 f"Supported OS names: {', '.join(config.OS_IMAGE_MAP.keys())}"
             )
             return
@@ -118,8 +119,8 @@ def handle_create_openstack_vm(say, user, params_dict):
 
         logger.info(f"Using Image ID: {image_id} and Network ID: {network_id}")
 
-        if key_pair not in ("new", "open"):
-            say("`key_pair` should either be `new` or `open`.")
+        if key_pair not in ("new", "existing"):
+            say("`key_pair` should either be `new` or `existing`.")
             logger.debug(f"invalid `key_pair` value: {key_pair}")
             return
 
