@@ -57,7 +57,7 @@ def handle_help(say, user, command_name=None):
             "description": "Whether to use new or existing keypair",
             "required": True,
             "type": "str",
-            "choices": ['new', 'existing']
+            "choices": ["new", "existing"],
         },
     },
     examples=[
