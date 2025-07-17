@@ -6,7 +6,6 @@ from sdk.tools.help_system import handle_help_command, check_help_flag
 import logging
 import json
 import sys
-import os
 
 from slack_handlers.handlers import (
     handle_create_openstack_vm,
@@ -20,33 +19,35 @@ from slack_handlers.handlers import (
 
 def setup_logging():
     """Configure logging for the application."""
-    log_level = getattr(config, 'LOG_LEVEL', 'INFO').upper()
-    is_running_as_docker = os.getenv('DOCKER_CONTAINER') or os.path.exists('/.dockerenv')
-    
+    log_level = getattr(config, "LOG_LEVEL", "INFO").upper()
+    is_running_as_docker = os.getenv("DOCKER_CONTAINER") or os.path.exists(
+        "/.dockerenv"
+    )
+
     # Convert string level to numeric level
     numeric_level = getattr(logging, log_level, logging.INFO)
-    
+
     # Force stdout logging in Docker containers
     logging.basicConfig(
         level=numeric_level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         stream=sys.stdout if is_running_as_docker else None,
-        force=True
+        force=True,
     )
-    
+
     # Get logger instance
     logger_instance = logging.getLogger(__name__)
-    
+
     # Debug information to help troubleshoot
     # print(f"DEBUG: Configured log level: {log_level} (numeric: {numeric_level})")
     # print(f"DEBUG: Running in Docker: {is_running_as_docker}")
     # print(f"DEBUG: Logger handlers: {logging.getLogger().handlers}")
-    
-    return logger_instance
 
+    return logger_instance
 
 # Set up logging early
 logger = setup_logging()
+
 app = App(token=config.SLACK_BOT_TOKEN)
 
 try:
@@ -142,6 +143,6 @@ def mention_handler(body, say):
 
 # Main Entry Point
 if __name__ == "__main__":
-    logger.info("Starting Slack bot with Socket Mode handler...")
+    logger.info("Starting Slack bot...")
     handler = SocketModeHandler(app, config.SLACK_APP_TOKEN)
     handler.start()
