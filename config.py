@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from dynaconf import Dynaconf
 import tempfile
 import json
-import requests
+import httpx
 import hvac
 
 required_keys = [
@@ -55,7 +55,7 @@ try:
         },
         envvar_prefix=False,  # This will make it so that ALL the variables from `.env` are loaded
     )
-except requests.exceptions.ConnectionError:
+except (httpx.ConnectError, ConnectionError):
     logging.warn("Vault connection failed")
 except hvac.exceptions.InvalidRequest:
     logging.warn("Authentication error with Vault")

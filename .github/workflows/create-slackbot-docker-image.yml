@@ -17,6 +17,14 @@ on:
         description: 'Minor Version'
         required: true
         default: "1"
+      push_when_critical_errors_in_scan:
+        description: 'Push when Critical Errors in Scan'
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 jobs:
   build-and-push:
@@ -47,62 +55,146 @@ jobs:
 
       # e.g. if there are 24 previous images starting with the tag name "1.1."
       # the next tag name will be 1.1.25
-      run: |
-        PAGE=1
-        LIMIT=50
-        HAS_MORE=true
-        # Initialize an empty JSON array
-        ALL_TAGS='[]'
-        
-        FILTER_PARAMS="&onlyActiveTags=1&filter_tag_name=like:${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
-        
-        while [ "$HAS_MORE" = true ]; do
-          echo "Fetching page $PAGE..."
-          PAGE_AND_LIMIT_PARAMS="?limit=$LIMIT&page=$PAGE"
-          if ! JSON_RESPONSE=$(curl -s -f --max-time 300 "$SLACKBOT_IMAGE_REPO_URL$PAGE_AND_LIMIT_PARAMS$FILTER_PARAMS"); then
-            echo "Failed to fetch tags from API"
-            exit 1
-          fi
-        
-          # Extract just the tags and append to ALL_TAGS
-          TAGS=$(echo "$JSON_RESPONSE" | jq '.tags')
-          ALL_TAGS=$(jq -s 'add' <(echo "$ALL_TAGS") <(echo "$TAGS"))
-        
-          HAS_MORE=$(echo "$JSON_RESPONSE" | jq '.has_additional')
-          PAGE=$((PAGE + 1))
-        done
-        
-        # Now ALL_TAGS contains all the tags from all pages
-        COUNT_EXISTING=$(echo "$ALL_TAGS" | jq '. | length')
-        
-        if [ "$COUNT_EXISTING" -eq 0 ]; then
-            echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
-            NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${{ env.TAG_PATCH_VERSION }}"
-        else
-            echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"
-            MAX_VER=$(echo "$ALL_TAGS" | jq -r '.[].name'| sort -V | tail -n1)
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$MAX_VER"
-            NEW_PATCH=$((PATCH + 1))
-            NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${NEW_PATCH}"
-        fi        
-        echo "NEXT_TAG_VERSION=$NEXT_TAG_VERSION" >> $GITHUB_ENV
-        echo "Computed image version: $NEXT_TAG_VERSION"
+      uses: nick-fields/retry@v2  # Add retry action
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_on: error
+        command: |
+          PAGE=1
+          LIMIT=50
+          HAS_MORE=true
+          # Initialize an empty JSON array
+          ALL_TAGS='[]'
+          
+          FILTER_PARAMS="&onlyActiveTags=1&filter_tag_name=like:${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+          
+          while [ "$HAS_MORE" = true ]; do
+            echo "Fetching page $PAGE..."
+            PAGE_AND_LIMIT_PARAMS="?limit=$LIMIT&page=$PAGE"
+            if ! JSON_RESPONSE=$(curl -s -f --max-time 300 "$SLACKBOT_IMAGE_REPO_URL$PAGE_AND_LIMIT_PARAMS$FILTER_PARAMS"); then
+              echo "Failed to fetch tags from API"
+              exit 1
+            fi
+          
+            # Extract just the tags and append to ALL_TAGS
+            TAGS=$(echo "$JSON_RESPONSE" | jq '.tags')
+            ALL_TAGS=$(jq -s 'add' <(echo "$ALL_TAGS") <(echo "$TAGS"))
+          
+            HAS_MORE=$(echo "$JSON_RESPONSE" | jq '.has_additional')
+            PAGE=$((PAGE + 1))
+          done
+          
+          # Now ALL_TAGS contains all the tags from all pages
+          COUNT_EXISTING=$(echo "$ALL_TAGS" | jq '. | length')
+          
+          if [ "$COUNT_EXISTING" -eq 0 ]; then
+              echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+              NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${{ env.TAG_PATCH_VERSION }}"
+          else
+              echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"
+              MAX_VER=$(echo "$ALL_TAGS" | jq -r '.[].name'| sort -V | tail -n1)
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$MAX_VER"
+              NEW_PATCH=$((PATCH + 1))
+              NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${NEW_PATCH}"
+          fi        
+          echo "NEXT_TAG_VERSION=$NEXT_TAG_VERSION" >> $GITHUB_ENV
+          echo "Computed image version: $NEXT_TAG_VERSION"
 
     - name: Mask Values and Login
       shell: bash
       run: |
         QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
+        if ! QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH); then
+          echo "Failed to extract password"
+          exit 1
+        fi
         echo ::add-mask::$QUAY_PASSWORD
         QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
+        if ! QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH); then
+          echo "Failed to extract username"
+          exit 1
+        fi
         echo ::add-mask::$QUAY_USERNAME
         echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
 
-    - name: Build and push Docker image
+    - name: Build Docker image locally
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+        load: true
+      timeout-minutes: 30  # Add timeout
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      id: trivy-scan
+      with:
+        image-ref: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL'
+        exit-code: '1'
+
+    - name: Display Trivy scan results
+      if: always()
+      run: |
+        echo "=== Trivy Scan Results (All Severities) ==="
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image --format table \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
+        
+        echo "=== Trivy Scan Results (CRITICAL only) ==="
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image --severity CRITICAL --format table \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
+          
+        echo "=== Trivy Scan Results (UNKNOWN only) ==="
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image --severity UNKNOWN --format table \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
+
+    - name: Push Docker image to Quay if scan passed
+      if: steps.trivy-scan.outcome == 'success' || inputs.push_when_critical_errors_in_scan == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+
+    - name: Check SARIF file contents
+      if: always()
+      run: |
+        echo "=== SARIF File Info ==="
+        if [ -f "trivy-results.sarif" ]; then
+          echo "SARIF file exists"
+          echo "File size: $(stat -c%s trivy-results.sarif) bytes"
+          echo "First 50000 characters of SARIF file:"
+          head -c 50000 trivy-results.sarif
+          echo ""
+          echo "=== SARIF Results Count ==="
+          # Count the number of results in the SARIF file
+          jq '.runs[].results | length' trivy-results.sarif 2>/dev/null || echo "Could not parse SARIF file"
+        else
+          echo "SARIF file does not exist"
+        fi
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Report scan results
+      if: always()
+      run: |
+        if [ "${{ steps.trivy-scan.outcome }}" == "success" ]; then
+          echo "✅ Trivy security scan passed. Docker image has been pushed to Quay."
+        else
+          echo "❌ Trivy security scan failed with critical severity vulnerabilities."
+          echo "Docker image was not pushed to the registry."
+        fi
 
     - name: Logout
       run: |
