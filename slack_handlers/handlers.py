@@ -53,17 +53,18 @@ def handle_help(say, user, command_name=None):
             "type": "str",
             "choices": get_openstack_flavors,
         },
-        "key_name": {
-            "description": "SSH key name for access",
+        "key_pair": {
+            "description": "Whether to use new or existing keypair",
             "required": True,
             "type": "str",
+            "choices": ["new", "existing"],
         },
     },
     examples=[
-        "create-openstack-vm --name=myvm --os_name=fedora --flavor=ci.cpu.small --key_name=my-key"
+        "create-openstack-vm --name=myvm --os_name=fedora --flavor=ci.cpu.small --key_pair=new"
     ],
 )
-def handle_create_openstack_vm(say, user, params_dict):
+def handle_create_openstack_vm(say, user, app, params_dict):
     try:
         if not isinstance(params_dict, dict):
             raise ValueError(
@@ -74,14 +75,14 @@ def handle_create_openstack_vm(say, user, params_dict):
         name = params_dict.get("name")
         os_name = params_dict.get("os_name")
         flavor = params_dict.get("flavor")
-        key_name = params_dict.get("key_name")
+        key_pair = params_dict.get("key_pair")  # `new` or `existing`
 
         logger.info(
-            f"Parsed Parameters: name={name}, os_name={os_name}, flavor={flavor}, key_name={key_name}"
+            f"Parsed Parameters: name={name}, os_name={os_name}, flavor={flavor}, key_pair={key_pair}"
         )
 
         # Validate required fields
-        required_params = ["name", "os_name", "flavor", "key_name"]
+        required_params = ["name", "os_name", "flavor", "key_pair"]
         missing_params = [
             param for param in required_params if not params_dict.get(param)
         ]
@@ -89,7 +90,7 @@ def handle_create_openstack_vm(say, user, params_dict):
         if missing_params:
             say(
                 f":warning: Missing required parameters: {', '.join(missing_params)}. "
-                f"Usage: create-openstack-vm --name=<name> --os_name=<os_name> --flavor=<flavor> --key_name=<key>\n"
+                f"Usage: create-openstack-vm --name=<name> --os_name=<os_name> --flavor=<flavor> --key_pair=[new|existing]\n"
                 f"Supported OS names: {', '.join(config.OS_IMAGE_MAP.keys())}"
             )
             return
@@ -118,12 +119,29 @@ def handle_create_openstack_vm(say, user, params_dict):
 
         logger.info(f"Using Image ID: {image_id} and Network ID: {network_id}")
 
+        if key_pair not in ("new", "existing"):
+            say("`key_pair` should either be `new` or `existing`.")
+            logger.debug(f"invalid `key_pair` value: {key_pair}")
+            return
+
         say(
             ":hourglass_flowing_sand: Now processing your request for an OpenStack VM... Please wait."
         )
         openstack_helper = OpenStackHelper()
+
+        key_pair = _helper_select_keypair(
+            key_pair, user, app, "OpenStack", image_id, flavor, say, openstack_helper
+        )
+
+        if not key_pair:
+            logging.error(
+                f"Fetching/creating Openstack keypair failed for user {user} Aborting."
+            )
+            say("Some problem occurred during keypair selection. Aborting VM creation")
+            return
+
         response = openstack_helper.create_servers(
-            name, image_id, flavor, key_name, network_id
+            name, image_id, flavor, key_pair["KeyName"], network_id
         )
 
         # Extract result from response
@@ -157,7 +175,7 @@ def handle_create_openstack_vm(say, user, params_dict):
                 "Make sure your key file has the correct permissions: `chmod 400 <path_to_your_private_key.pem>`\n"
                 "\n\n"
                 ":warning: *Key Pair Access:*\n"
-                f"To access this instance via SSH, you should have the `{instance_info.get('key_name', config.OS_DEFAULT_KEY_NAME)}` private key.\n"
+                f"To access this instance via SSH, you should have the private key with fingerprint `{key_pair['KeyFingerprint']}`.\n"
                 "If you don't have it, please contact the admin for access."
             )
 
@@ -342,7 +360,7 @@ def handle_create_aws_vm(say, user, region, app, params_dict):
 
             # Select key to use
             key_to_use = _helper_select_keypair(
-                key_pair, user, app, os_name, instance_type, say, ec2_helper
+                key_pair, user, app, "AWS", os_name, instance_type, say, ec2_helper
             )
 
             if not key_to_use:
@@ -726,7 +744,7 @@ def handle_list_team_links(say, user):
 
 
 def _helper_select_keypair(
-    key_option, user, app, os_name, instance_type, say, cloud_sdk_obj
+    key_option, user, app, cloud_type, os_name, instance_type, say, cloud_sdk_obj
 ):
     key_to_use = {}
 
@@ -751,10 +769,11 @@ def _helper_select_keypair(
         # DM user with private key
         app.client.chat_postMessage(
             channel=user,
-            text=f"New key created:\n```{new_key['KeyMaterial']}```\n"
-            + f"Cloud: AWS, OS: {os_name}, Instance: {instance_type}",
+            text=f"""New key created:\n```{new_key["KeyMaterial"]}```
+                  Cloud: {cloud_type}, OS: {os_name}, Instance: {instance_type}""",
         )
         logger.debug("Sent private key in user DM.")
+        say("Please check DM for the newly generated private key.")
 
         key_to_use = {
             "KeyName": new_key["KeyName"],

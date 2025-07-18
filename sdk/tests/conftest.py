@@ -28,7 +28,6 @@ def setup_environment_variables():
     os.environ["OS_NETWORK_MAP"] = '{"network1": "dummy-network-id"}'
     os.environ["OS_DEFAULT_NETWORK"] = "network1"
     os.environ["OS_DEFAULT_SSH_USER"] = "root"
-    os.environ["OS_DEFAULT_KEY_NAME"] = "dummy-key-name"
     os.environ["RH_CA_BUNDLE_TEXT"] = "RH_CA_BUNDLE_TEXT"
     os.environ["VAULT_ENABLED_FOR_DYNACONF"] = "VAULT_ENABLED_FOR_DYNACONF"
     os.environ["VAULT_URL_FOR_DYNACONF"] = "VAULT_URL_FOR_DYNACONF"

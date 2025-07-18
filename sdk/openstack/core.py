@@ -1,5 +1,5 @@
 from openstack import connection
-from openstack.exceptions import ResourceFailure
+from openstack.exceptions import ResourceFailure, ConflictException
 from config import config
 from sdk.tools.helpers import get_list_of_values_for_key_in_dict_of_parameters
 import logging
@@ -178,3 +178,61 @@ class OpenStackHelper:
             logger.error(f"Error creating OpenStack VM: {str(e)}")
             logger.error(traceback.format_exc())
             raise e
+
+    def create_keypair(self, key_name: str):
+        """
+        Function to create keypair on Openstack and return the private key.
+        It will default to RSA to maintain consistency with AWS
+        """
+        new_key = {}
+        try:
+            key = self.conn.create_keypair(key_name)
+
+            new_key["KeyName"] = key_name
+            new_key["KeyFingerprint"] = key["fingerprint"]
+            new_key["KeyMaterial"] = key["private_key"]
+
+            logger.debug(
+                f"Created keypair {key_name} with fingerprint: {key['fingerprint']}"
+            )
+
+        except ConflictException as e:
+            logger.error(f"Key already existed for this user: {e}")
+
+        return new_key
+
+    def delete_keypair(self, key_name: str):
+        """
+        Function to delete keypair on Openstack.
+        Returns a boolean.
+        """
+        result = self.conn.delete_keypair(key_name)
+        if not result:
+            logger.error(f"Couldn't delete key: {key_name}")
+
+        return result
+
+    def describe_keypair(self, key_name: str = None):
+        """
+        Function to fetch keys from Openstack
+        """
+        key = {}
+        try:
+            if key_name:
+                ret_keys = self.conn.list_keypairs({"name": key_name})
+                if not ret_keys or not isinstance(ret_keys, list):
+                    return None
+
+                key["KeyName"] = ret_keys[0].name
+                key["KeyFingerprint"] = ret_keys[0].fingerprint
+            else:
+                ret_keys = self.conn.list_keypairs()
+                if not ret_keys or not isinstance(ret_keys, list):
+                    return None
+
+                key = ret_keys
+        except Exception as e:
+            logger.exception(f"Unexpected exception occurred while fetching keys: {e}")
+            # Return empty key
+
+        return key
