@@ -34,8 +34,6 @@ jobs:
       IMAGE_NAME: "quay.io/ocp_sustaining_engineering/slack_backend"
       TAG_PATCH_VERSION: 0
       SLACKBOT_IMAGE_REPO_URL: "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"
-      QUAY_USERNAME: ${{ secrets.QUAY_REGISTRY_USERNAME }}
-      QUAY_PASSWORD: ${{ secrets.QUAY_REGISTRY_PASSWORD }}
 
     steps:
     - name: Validate inputs
@@ -106,11 +104,13 @@ jobs:
     - name: Mask Values and Login
       shell: bash
       run: |
+        QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
         if ! QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH); then
           echo "Failed to extract password"
           exit 1
         fi
         echo ::add-mask::$QUAY_PASSWORD
+        QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
         if ! QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH); then
           echo "Failed to extract username"
           exit 1
