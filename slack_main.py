@@ -18,6 +18,7 @@ from slack_handlers.handlers import (
     handle_aws_modify_vm,
 )
 
+
 def setup_logging():
     """Configure logging for the application."""
     log_level = getattr(config, "LOG_LEVEL", "INFO").upper()
@@ -45,6 +46,7 @@ def setup_logging():
     # print(f"DEBUG: Logger handlers: {logging.getLogger().handlers}")
 
     return logger_instance
+
 
 # Set up logging early
 logger = setup_logging()
