@@ -104,19 +104,30 @@ jobs:
     - name: Mask Values and Login
       shell: bash
       run: |
+        set -e  # Exit immediately if any command fails
+        
         QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
         if ! QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH); then
-          echo "Failed to extract password"
+          echo "❌ Failed to extract password from input"
           exit 1
         fi
         echo ::add-mask::$QUAY_PASSWORD
+        
         QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
         if ! QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH); then
-          echo "Failed to extract username"
+          echo "❌ Failed to extract username from input"
           exit 1
         fi
         echo ::add-mask::$QUAY_USERNAME
-        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
+        
+        echo "🔐 Attempting to login to quay.io..."
+        if ! echo "$QUAY_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin 2>/dev/null; then
+          echo "❌ Docker login to quay.io failed! Check your credentials."
+          echo "Username: $QUAY_USERNAME"
+          echo "Registry: quay.io"
+          exit 1
+        fi
+        echo "✅ Successfully logged into quay.io"
 
     - name: Build Docker image locally
       uses: docker/build-push-action@v5
@@ -216,5 +227,11 @@ jobs:
         fi
 
     - name: Logout
+      if: always()
       run: |
-        docker logout quay.io
+        echo "🔓 Logging out from quay.io..."
+        if docker logout quay.io 2>/dev/null; then
+          echo "✅ Successfully logged out from quay.io"
+        else
+          echo "⚠️  Logout failed or was not needed (not currently logged in)"
+        fi
