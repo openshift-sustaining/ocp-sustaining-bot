@@ -155,14 +155,6 @@ jobs:
           aquasec/trivy:latest image --severity UNKNOWN --format table \
           ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
 
-    - name: Push Docker image to Quay if scan passed
-      if: steps.trivy-scan.outcome == 'success' || inputs.push_when_critical_errors_in_scan == 'true'
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
-
     - name: Check SARIF file contents
       if: always()
       run: |
@@ -179,6 +171,50 @@ jobs:
         else
           echo "SARIF file does not exist"
         fi
+
+    - name: Debug push condition
+      if: always()
+      run: |
+        echo "=== Debug Push Condition ==="
+        echo "Trivy scan outcome: ${{ steps.trivy-scan.outcome }}"
+        echo "Trivy scan conclusion: ${{ steps.trivy-scan.conclusion }}"
+        echo "Push when critical errors input: ${{ inputs.push_when_critical_errors_in_scan }}"
+        echo "Input type check: ${{ inputs.push_when_critical_errors_in_scan == 'true' }}"
+        echo "Scan success check: ${{ steps.trivy-scan.outcome == 'success' }}"
+        echo "Combined condition: ${{ steps.trivy-scan.outcome == 'success' || inputs.push_when_critical_errors_in_scan == 'true' }}"
+        
+        # Check if step should run
+        if [[ "${{ steps.trivy-scan.outcome == 'success' || inputs.push_when_critical_errors_in_scan == 'true' }}" == "true" ]]; then
+          echo "✅ Push step SHOULD run based on condition"
+        else
+          echo "❌ Push step should NOT run based on condition"
+        fi
+
+    - name: Determine if we should push
+      id: should-push
+      run: |
+        SHOULD_PUSH="false"
+        
+        if [ "${{ steps.trivy-scan.outcome }}" == "success" ]; then
+          echo "Trivy scan passed - will push image"
+          SHOULD_PUSH="true"
+        elif [ "${{ inputs.push_when_critical_errors_in_scan }}" == "true" ]; then
+          echo "Trivy scan failed but push_when_critical_errors_in_scan is true - will push image"
+          SHOULD_PUSH="true"
+        else
+          echo "Trivy scan failed and push_when_critical_errors_in_scan is false - will NOT push image"
+        fi
+        
+        echo "SHOULD_PUSH=$SHOULD_PUSH" >> $GITHUB_ENV
+        echo "should_push=$SHOULD_PUSH" >> $GITHUB_OUTPUT
+
+    - name: Push Docker image to Quay if scan passed
+      if: env.SHOULD_PUSH == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
