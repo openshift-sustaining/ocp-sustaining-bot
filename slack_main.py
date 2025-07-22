@@ -27,7 +27,7 @@ def setup_logging():
     )
 
     # Convert string level to numeric level
-    numeric_level = getattr(logging, log_level, logging.INFO)
+    numeric_level = logging.getLevelName(log_level)
 
     # Force stdout logging in Docker containers
     logging.basicConfig(
