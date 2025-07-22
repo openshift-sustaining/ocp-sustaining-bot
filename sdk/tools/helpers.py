@@ -4,14 +4,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def get_dict_of_command_parameters(command_line: str) -> dict:
+def process_command_parameters(command_line: str) -> dict:
     """
-    Parse command line arguments into a dictionary of parameters and their values.
+    Parse command line arguments into a dictionary of parameters and their values and/or a list of parameters
 
     This function extracts command-line parameters from a string and converts them into
-    a dictionary format. It handles both valued parameters (--key=value or --key value)
+    a dictionary and list format. It handles both valued parameters (--key=value or --key value)
     and flag parameters (--flag). The function supports various parameter formats including
     comma-separated values and multi-token values.
+
+    NB: if using a mixture of parameters and key/values, place the parameters before the key/values
 
     Args:
         command_line (str): The command line string to parse. Can include the command name
@@ -24,6 +26,7 @@ def get_dict_of_command_parameters(command_line: str) -> dict:
                 * String values for parameters with values (comma-separated values are cleaned)
                 * Boolean True for flag parameters without values
               - Returns empty dict {} if no parameters found or on parsing errors
+        list: all parameters that don't start with -- or - will get added to the list
 
     Supported Parameter Formats:
         - --param=value          : {'param': 'value'}
@@ -33,25 +36,36 @@ def get_dict_of_command_parameters(command_line: str) -> dict:
         - --list=val1,val2       : {'list': 'val1,val2'}
         - --multi word value     : {'multi': 'word value'}
         - --quoted="spaced value": {'quoted': 'spaced value'}
+        arg1 arg2
 
     Examples:
-        >>> get_dict_of_command_parameters("list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped --stop")
+        >>> process_command_parameters("list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped --stop")
         {'type': 't3.micro,t2.micro', 'state': 'pending,stopped', 'stop': True}
+        []
 
-        >>> get_dict_of_command_parameters("command --region us-east-1 --verbose")
+        >>> process_command_parameters("command --region us-east-1 --verbose")
         {'region': 'us-east-1', 'verbose': True}
+        []
 
-        >>> get_dict_of_command_parameters("command --name 'my server' --count 5")
+        >>> process_command_parameters("command --name 'my server' --count 5")
         {'name': 'my server', 'count': '5'}
+        []
 
-        >>> get_dict_of_command_parameters("command --list item1, item2 , item3")
+        >>> process_command_parameters("command --list item1, item2 , item3")
         {'list': 'item1,item2,item3'}
+        []
 
-        >>> get_dict_of_command_parameters("")
+        >>> process_command_parameters("")
         {}
+        []
 
-        >>> get_dict_of_command_parameters("command-with-no-params")
+        >>> process_command_parameters("command-with-no-params")
         {}
+        []
+
+        >>> process_command_parameters("list-aws-vms param1 param2 --type=t3.micro,t2.micro --state=pending,stopped --stop")
+        {'type': 't3.micro,t2.micro', 'state': 'pending,stopped', 'stop': True}
+        ['param1','param2']
 
     Notes:
         - Parameter names have leading dashes (-/--) stripped from keys
@@ -69,7 +83,8 @@ def get_dict_of_command_parameters(command_line: str) -> dict:
     if not command_line:
         return {}
 
-    parsed_params = {}
+    parsed_key_value_params = {}
+    plain_params = []
 
     try:
         # Use shlex.split to properly handle quoted arguments and spaces
@@ -134,16 +149,22 @@ def get_dict_of_command_parameters(command_line: str) -> dict:
                     if value is not None and value != "":
                         # Clean up comma-separated values in the value
                         cleaned_value = _clean_comma_separated_value(value)
-                        parsed_params[key] = cleaned_value
+                        parsed_key_value_params[key] = cleaned_value
                     else:
                         # Flag parameter without value (e.g., --stop, --delete)
-                        parsed_params[key] = True
+                        parsed_key_value_params[key] = True
+            # handle parameters that are not key/values
+            elif len(token) > 1:
+                plain_params.append(token.strip())
             i += 1
 
     except Exception as e:
         logger.error(f"Error parsing command line '{command_line}': {e}")
 
-    return parsed_params
+    if len(plain_params) > 0:
+        # skip over the command value e.g. like aws-list-vms
+        plain_params = plain_params[1:]
+    return parsed_key_value_params, plain_params
 
 
 def get_list_of_values_for_key_in_dict_of_parameters(
