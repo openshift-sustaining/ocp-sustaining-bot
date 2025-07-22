@@ -102,6 +102,7 @@ jobs:
           echo "Computed image version: $NEXT_TAG_VERSION"
 
     - name: Mask Values and Login
+      id: login
       shell: bash
       run: |
         set -e  # Exit immediately if any command fails
@@ -128,6 +129,23 @@ jobs:
           exit 1
         fi
         echo "✅ Successfully logged into quay.io"
+        echo "LOGIN_SUCCESS=true" >> $GITHUB_ENV
+
+    - name: Login Failed - Workflow Terminated
+      if: always() && env.LOGIN_SUCCESS != 'true'
+      run: |
+        echo "🛑 WORKFLOW TERMINATED: Docker login to quay.io failed!"
+        echo ""
+        echo "The workflow has been stopped because authentication failed."
+        echo "Please check your Quay.io credentials and try again."
+        echo ""
+        echo "To fix this issue:"
+        echo "  1. Verify your Quay.io username is correct"
+        echo "  2. Verify your Quay.io password/token is correct and has not expired"
+        echo "  3. Ensure your Quay.io account has push permissions to the repository"
+        echo ""
+        echo "No further steps will be executed until login succeeds."
+        exit 1
 
     - name: Build Docker image locally
       uses: docker/build-push-action@v5
@@ -149,7 +167,7 @@ jobs:
         exit-code: '1'
 
     - name: Display Trivy scan results
-      if: always()
+      if: always() && env.LOGIN_SUCCESS == 'true'
       run: |
         echo "=== Trivy Scan Results (All Severities) ==="
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
@@ -168,7 +186,7 @@ jobs:
 
     - name: Determine if we should push
       id: should_push
-      if: always()
+      if: always() && env.LOGIN_SUCCESS == 'true'
       run: |
         SHOULD_PUSH="false"
         
@@ -186,7 +204,7 @@ jobs:
         echo "SHOULD_PUSH=$SHOULD_PUSH" >> $GITHUB_ENV
 
     - name: Push Docker image to Quay
-      if: always() && env.SHOULD_PUSH == 'true'
+      if: always() && env.LOGIN_SUCCESS == 'true' && env.SHOULD_PUSH == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -194,7 +212,7 @@ jobs:
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
 
     - name: Check SARIF file contents
-      if: always()
+      if: always() && env.LOGIN_SUCCESS == 'true'
       run: |
         echo "=== SARIF File Info ==="
         if [ -f "trivy-results.sarif" ]; then
@@ -212,12 +230,12 @@ jobs:
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
-      if: always()
+      if: always() && env.LOGIN_SUCCESS == 'true'
       with:
         sarif_file: 'trivy-results.sarif'
 
     - name: Report scan results
-      if: always()
+      if: always() && env.LOGIN_SUCCESS == 'true'
       run: |
         if [ "${{ steps.trivy-scan.outcome }}" == "success" ]; then
           echo "✅ Trivy security scan passed. Docker image has been pushed to Quay."
