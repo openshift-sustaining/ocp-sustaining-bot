@@ -221,14 +221,32 @@ jobs:
         echo "Raw step output: ${{ steps.should_push.outputs.should_push }}"
         echo "Raw env var: ${{ env.SHOULD_PUSH }}"
 
-    - name: Push Docker image to Quay if scan passed
-      if: env.SHOULD_PUSH == 'true'
+    - name: Debug job and workflow status
+      if: always()
       run: |
-        echo "🚀 Pushing Docker image to Quay..."
+        echo "=== Job and Workflow Status ==="
+        echo "Job status: ${{ job.status }}"
+        echo "Runner OS: ${{ runner.os }}"
+        echo "GitHub context:"
+        echo "  workflow: ${{ github.workflow }}"
+        echo "  run_id: ${{ github.run_id }}"
+        echo "  run_number: ${{ github.run_number }}"
+        
+        echo "=== Previous Step Outcomes ==="
+        echo "Trivy scan outcome: ${{ steps.trivy-scan.outcome }}"
+        echo "Trivy scan conclusion: ${{ steps.trivy-scan.conclusion }}"
+        echo "Should push outcome: ${{ steps.should_push.outcome }}"
+        echo "Should push conclusion: ${{ steps.should_push.conclusion }}"
+
+    - name: Push Docker image to Quay if scan passed
+      if: always() && env.SHOULD_PUSH == 'true'
+      run: |
+        echo "🚀 This step is running! Pushing Docker image to Quay..."
         echo "Image: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}"
+        echo "SHOULD_PUSH value: ${{ env.SHOULD_PUSH }}"
       
     - name: Push Docker image to Quay - actual push
-      if: env.SHOULD_PUSH == 'true'
+      if: always() && env.SHOULD_PUSH == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
