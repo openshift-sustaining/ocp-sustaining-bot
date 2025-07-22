@@ -183,7 +183,7 @@ jobs:
         echo "Job status: ${{ job.status }}"
         
     - name: Determine if we should push
-      id: should-push
+      id: should_push
       if: always()
       run: |
         echo "=== Push Decision Logic ==="
@@ -203,14 +203,32 @@ jobs:
         echo "SHOULD_PUSH=$SHOULD_PUSH" >> $GITHUB_ENV
         echo "should_push=$SHOULD_PUSH" >> $GITHUB_OUTPUT
 
+    - name: Debug step outputs and environment variables
+      if: always()
+      run: |
+        echo "=== Debugging Step Outputs and Environment Variables ==="
+        echo "Environment variable SHOULD_PUSH: '${{ env.SHOULD_PUSH }}'"
+        echo "Step output should_push: '${{ steps.should_push.outputs.should_push }}'"
+        echo "Environment variable direct check: '${SHOULD_PUSH}'"
+        
+        echo "=== Condition Evaluation ==="
+        echo "steps.should_push.outputs.should_push == 'true': ${{ steps.should_push.outputs.should_push == 'true' }}"
+        echo "env.SHOULD_PUSH == 'true': ${{ env.SHOULD_PUSH == 'true' }}"
+        echo "Combined OR condition: ${{ steps.should_push.outputs.should_push == 'true' || env.SHOULD_PUSH == 'true' }}"
+        echo "Simple env check: ${{ env.SHOULD_PUSH == 'true' }}"
+        
+        echo "=== Raw Values ==="
+        echo "Raw step output: ${{ steps.should_push.outputs.should_push }}"
+        echo "Raw env var: ${{ env.SHOULD_PUSH }}"
+
     - name: Push Docker image to Quay if scan passed
-      if: steps.should-push.outputs.should_push == 'true' || env.SHOULD_PUSH == 'true'
+      if: env.SHOULD_PUSH == 'true'
       run: |
         echo "🚀 Pushing Docker image to Quay..."
         echo "Image: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}"
       
     - name: Push Docker image to Quay - actual push
-      if: steps.should-push.outputs.should_push == 'true' || env.SHOULD_PUSH == 'true'
+      if: env.SHOULD_PUSH == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
