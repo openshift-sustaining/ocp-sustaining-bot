@@ -155,6 +155,33 @@ jobs:
           aquasec/trivy:latest image --severity UNKNOWN --format table \
           ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }} || true
 
+    - name: Determine if we should push
+      id: should_push
+      if: always()
+      run: |
+        SHOULD_PUSH="false"
+        
+        if [ "${{ steps.trivy-scan.outcome }}" == "success" ]; then
+          echo "✅ Trivy scan passed - will push image"
+          SHOULD_PUSH="true"
+        elif [ "${{ inputs.push_when_critical_errors_in_scan }}" == "true" ]; then
+          echo "⚠️  Trivy scan failed but push_when_critical_errors_in_scan is true - will push image"
+          SHOULD_PUSH="true"
+        else
+          echo "❌ Trivy scan failed and push_when_critical_errors_in_scan is false - will NOT push image"
+        fi
+        
+        echo "Final decision: SHOULD_PUSH=$SHOULD_PUSH"
+        echo "SHOULD_PUSH=$SHOULD_PUSH" >> $GITHUB_ENV
+
+    - name: Push Docker image to Quay
+      if: always() && env.SHOULD_PUSH == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+
     - name: Check SARIF file contents
       if: always()
       run: |
@@ -171,87 +198,6 @@ jobs:
         else
           echo "SARIF file does not exist"
         fi
-
-    - name: Debug workflow state before push decision
-      if: always()
-      run: |
-        echo "=== Workflow State Debug ==="
-        echo "Current step: Debug workflow state before push decision"
-        echo "Trivy scan step outcome: ${{ steps.trivy-scan.outcome }}"
-        echo "Trivy scan step conclusion: ${{ steps.trivy-scan.conclusion }}"
-        echo "Push when critical errors input: ${{ inputs.push_when_critical_errors_in_scan }}"
-        echo "Job status: ${{ job.status }}"
-        
-    - name: Determine if we should push
-      id: should_push
-      if: always()
-      run: |
-        echo "=== Push Decision Logic ==="
-        SHOULD_PUSH="false"
-        
-        if [ "${{ steps.trivy-scan.outcome }}" == "success" ]; then
-          echo "✅ Trivy scan passed - will push image"
-          SHOULD_PUSH="true"
-        elif [ "${{ inputs.push_when_critical_errors_in_scan }}" == "true" ]; then
-          echo "⚠️  Trivy scan failed but push_when_critical_errors_in_scan is true - will push image"
-          SHOULD_PUSH="true"
-        else
-          echo "❌ Trivy scan failed and push_when_critical_errors_in_scan is false - will NOT push image"
-        fi
-        
-        echo "Final decision: SHOULD_PUSH=$SHOULD_PUSH"
-        echo "SHOULD_PUSH=$SHOULD_PUSH" >> $GITHUB_ENV
-        echo "should_push=$SHOULD_PUSH" >> $GITHUB_OUTPUT
-
-    - name: Debug step outputs and environment variables
-      if: always()
-      run: |
-        echo "=== Debugging Step Outputs and Environment Variables ==="
-        echo "Environment variable SHOULD_PUSH: '${{ env.SHOULD_PUSH }}'"
-        echo "Step output should_push: '${{ steps.should_push.outputs.should_push }}'"
-        echo "Environment variable direct check: '${SHOULD_PUSH}'"
-        
-        echo "=== Condition Evaluation ==="
-        echo "steps.should_push.outputs.should_push == 'true': ${{ steps.should_push.outputs.should_push == 'true' }}"
-        echo "env.SHOULD_PUSH == 'true': ${{ env.SHOULD_PUSH == 'true' }}"
-        echo "Combined OR condition: ${{ steps.should_push.outputs.should_push == 'true' || env.SHOULD_PUSH == 'true' }}"
-        echo "Simple env check: ${{ env.SHOULD_PUSH == 'true' }}"
-        
-        echo "=== Raw Values ==="
-        echo "Raw step output: ${{ steps.should_push.outputs.should_push }}"
-        echo "Raw env var: ${{ env.SHOULD_PUSH }}"
-
-    - name: Debug job and workflow status
-      if: always()
-      run: |
-        echo "=== Job and Workflow Status ==="
-        echo "Job status: ${{ job.status }}"
-        echo "Runner OS: ${{ runner.os }}"
-        echo "GitHub context:"
-        echo "  workflow: ${{ github.workflow }}"
-        echo "  run_id: ${{ github.run_id }}"
-        echo "  run_number: ${{ github.run_number }}"
-        
-        echo "=== Previous Step Outcomes ==="
-        echo "Trivy scan outcome: ${{ steps.trivy-scan.outcome }}"
-        echo "Trivy scan conclusion: ${{ steps.trivy-scan.conclusion }}"
-        echo "Should push outcome: ${{ steps.should_push.outcome }}"
-        echo "Should push conclusion: ${{ steps.should_push.conclusion }}"
-
-    - name: Push Docker image to Quay if scan passed
-      if: always() && env.SHOULD_PUSH == 'true'
-      run: |
-        echo "🚀 This step is running! Pushing Docker image to Quay..."
-        echo "Image: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}"
-        echo "SHOULD_PUSH value: ${{ env.SHOULD_PUSH }}"
-      
-    - name: Push Docker image to Quay - actual push
-      if: always() && env.SHOULD_PUSH == 'true'
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
