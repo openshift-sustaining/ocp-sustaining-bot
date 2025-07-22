@@ -16,5 +16,9 @@ RUN apk add --no-cache --virtual .build-deps gcc musl-dev linux-headers python3-
 # Remove zlib and compression libraries if not needed
 # RUN apk del zlib zlib-dev
 
+RUN apk del sqlite-libs || true
+# or for apt-based images
+RUN apt-get purge -y sqlite3 libsqlite3-0 || true
+
 # Run the app
 CMD ["python", "slack_main.py"]
