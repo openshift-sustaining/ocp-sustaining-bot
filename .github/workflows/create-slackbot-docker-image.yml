@@ -132,7 +132,7 @@ jobs:
         echo "LOGIN_SUCCESS=true" >> $GITHUB_ENV
 
     - name: Login Failed - Workflow Terminated
-      if: always() && env.LOGIN_SUCCESS != 'true'
+      if: always() && steps.login.outcome == 'failure'
       run: |
         echo "🛑 WORKFLOW TERMINATED: Docker login to quay.io failed!"
         echo ""
@@ -167,7 +167,7 @@ jobs:
         exit-code: '1'
 
     - name: Display Trivy scan results
-      if: always() && env.LOGIN_SUCCESS == 'true'
+      if: always() && steps.login.outcome == 'success'
       run: |
         echo "=== Trivy Scan Results (All Severities) ==="
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
@@ -186,7 +186,7 @@ jobs:
 
     - name: Determine if we should push
       id: should_push
-      if: always() && env.LOGIN_SUCCESS == 'true'
+      if: always() && steps.login.outcome == 'success'
       run: |
         SHOULD_PUSH="false"
         
@@ -204,7 +204,7 @@ jobs:
         echo "SHOULD_PUSH=$SHOULD_PUSH" >> $GITHUB_ENV
 
     - name: Push Docker image to Quay
-      if: always() && env.LOGIN_SUCCESS == 'true' && env.SHOULD_PUSH == 'true'
+      if: always() && steps.login.outcome == 'success' && env.SHOULD_PUSH == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -212,7 +212,7 @@ jobs:
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
 
     - name: Check SARIF file contents
-      if: always() && env.LOGIN_SUCCESS == 'true'
+      if: always() && steps.login.outcome == 'success'
       run: |
         echo "=== SARIF File Info ==="
         if [ -f "trivy-results.sarif" ]; then
@@ -230,12 +230,12 @@ jobs:
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
-      if: always() && env.LOGIN_SUCCESS == 'true'
+      if: always() && steps.login.outcome == 'success'
       with:
         sarif_file: 'trivy-results.sarif'
 
     - name: Report scan results
-      if: always() && env.LOGIN_SUCCESS == 'true'
+      if: always() && steps.login.outcome == 'success'
       run: |
         if [ "${{ steps.trivy-scan.outcome }}" == "success" ]; then
           echo "✅ Trivy security scan passed. Docker image has been pushed to Quay."
