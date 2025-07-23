@@ -1,10 +1,15 @@
 import shlex
 import logging
+import re
+
+from typing_extensions import Match
+
+from sdk.tools.help_system import COMMAND_REGISTRY
 
 logger = logging.getLogger(__name__)
 
 
-def get_sub_commands_and_params(command_line: str) -> dict:
+def get_named_and_positional_params(command_line: str) -> tuple[dict, list]:
     """
     Parse command line arguments into a dictionary of parameters and their values and/or a list of parameters
 
@@ -20,13 +25,14 @@ def get_sub_commands_and_params(command_line: str) -> dict:
                            followed by parameters in various formats.
 
     Returns:
-        dict: A dictionary containing parsed parameters where:
-              - Keys are parameter names (without leading dashes)
-              - Values are either:
-                * String values for parameters with values (comma-separated values are cleaned)
-                * Boolean True for flag parameters without values
-              - Returns empty dict {} if no parameters found or on parsing errors
-        list: all parameters that don't start with -- or - will get added to the list
+        tuple:
+            dict: A dictionary containing parsed parameters where:
+                  - Keys are parameter names (without leading dashes)
+                  - Values are either:
+                    * String values for parameters with values (comma-separated values are cleaned)
+                    * Boolean True for flag parameters without values
+                  - Returns empty dict {} if no parameters found or on parsing errors
+            list: all parameters that don't start with -- or - will get added to the list
 
     Supported Parameter Formats:
         - --param=value          : {'param': 'value'}
@@ -39,33 +45,33 @@ def get_sub_commands_and_params(command_line: str) -> dict:
         arg1 arg2
 
     Examples:
-        >>> get_sub_commands_and_params("list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped --stop")
+        >>> get_named_and_positional_params("aws vm list --type=t3.micro,t2.micro --state=pending,stopped --stop")
         {'type': 't3.micro,t2.micro', 'state': 'pending,stopped', 'stop': True}
-        ["list-aws-vms"]
+        [""]
 
-        >>> get_sub_commands_and_params("command --region us-east-1 --verbose")
+        >>> get_named_and_positional_params("command --region us-east-1 --verbose")
         {'region': 'us-east-1', 'verbose': True}
-        ["command"]
+        [""]
 
-        >>> get_sub_commands_and_params("command --name 'my server' --count 5")
+        >>> get_named_and_positional_params("command --name 'my server' --count 5")
         {'name': 'my server', 'count': '5'}
-        ["command"]
+        [""]
 
-        >>> get_sub_commands_and_params("command --list item1, item2 , item3")
+        >>> get_named_and_positional_params("command --list item1, item2 , item3")
         {'list': 'item1,item2,item3'}
-        ["command"]
+        [""]
 
-        >>> get_sub_commands_and_params("")
+        >>> get_named_and_positional_params("")
         {}
         []
 
-        >>> get_sub_commands_and_params("command-with-no-params")
+        >>> get_named_and_positional_params("command-with-no-params")
         {}
-        ["command-with-no-params"]
+        [""]
 
-        >>> get_sub_commands_and_params("list-aws-vms param1 param2 --type=t3.micro,t2.micro --state=pending,stopped --stop")
+        >>> get_named_and_positional_params("aws vm list param1 param2 --type=t3.micro,t2.micro --state=pending,stopped --stop", "aws vm list")
         {'type': 't3.micro,t2.micro', 'state': 'pending,stopped', 'stop': True}
-        ['list-aws-vms', 'param1','param2']
+        ['param1','param2']
 
     Notes:
         - Parameter names have leading dashes (-/--) stripped from keys
@@ -77,18 +83,24 @@ def get_sub_commands_and_params(command_line: str) -> dict:
         - Call get_list_of_values_for_key_in_dict_of_parameters to get a list of values for a key in the returned dictionary
     """
     if not isinstance(command_line, str):
-        return {}
+        logger.error(f"command_line must be a string. command_line: {command_line}")
+        return {}, []
 
     command_line = command_line.strip()
     if not command_line:
-        return {}
+        return {}, []
 
-    parsed_key_value_params = {}
-    plain_params = []
+    named_params = {}
+    positional_params = []
+
+    parameters_line = get_parameters_line(command_line)
+
+    if not parameters_line:
+        return {}, []
 
     try:
         # Use shlex.split to properly handle quoted arguments and spaces
-        args = shlex.split(command_line)
+        args = shlex.split(parameters_line)
 
         i = 0
         while i < len(args):
@@ -149,19 +161,19 @@ def get_sub_commands_and_params(command_line: str) -> dict:
                     if value is not None and value != "":
                         # Clean up comma-separated values in the value
                         cleaned_value = _clean_comma_separated_value(value)
-                        parsed_key_value_params[key] = cleaned_value
+                        named_params[key] = cleaned_value
                     else:
                         # Flag parameter without value (e.g., --stop, --delete)
-                        parsed_key_value_params[key] = True
+                        named_params[key] = True
             # handle parameters that are not key/values
             elif len(token) > 1:
-                plain_params.append(token.strip())
+                positional_params.append(token.strip())
             i += 1
 
     except Exception as e:
-        logger.error(f"Error parsing command line '{command_line}': {e}")
+        logger.error(f"Error parsing command line '{parameters_line}': {e}")
 
-    return parsed_key_value_params, plain_params
+    return named_params, positional_params
 
 
 def get_list_of_values_for_key_in_dict_of_parameters(
@@ -220,3 +232,64 @@ def _clean_comma_separated_value(value: str) -> str:
 
     # Join back with commas
     return ",".join(parts)
+
+
+def _get_match_command_line(command_line: str) -> Match[str] | None:
+    commands_pattern = "|".join(map(re.escape, COMMAND_REGISTRY))
+    pattern = re.compile(
+        r"^(?P<base_command>help$|"
+        r"(?:(help\s)?"
+        r"(" + commands_pattern + r")"
+        r"(\s(?:help|h))?)"
+        r")\b"
+        r"(?P<params>.*)"
+    )
+
+    return pattern.match(command_line)
+
+
+def get_base_command(command_line: str) -> str | None:
+    """Extracts the base command."""
+    match_command = _get_match_command_line(command_line)
+
+    if not match_command:
+        return None
+
+    groups = match_command.groupdict()
+    base_command = groups.get("base_command", "") or ""
+
+    return f"{base_command}".strip()
+
+
+def get_parameters_line(command_line: str) -> str | None:
+    """Extracts the parameters line."""
+    match_command = _get_match_command_line(command_line)
+
+    if not match_command:
+        return None
+
+    groups = match_command.groupdict()
+    params_line = groups.get("params", "") or ""
+
+    return f"{params_line}".strip()
+
+
+def remove_bot_username(command_line: str) -> str:
+    """Remove the bot username from the command line."""
+    cmd_strings = [x for x in command_line.split(" ") if x.strip() != ""]
+
+    if len(cmd_strings) > 1 and (
+        cmd_strings[0].startswith("<@") or cmd_strings[0].startswith("@")
+    ):
+        return " ".join(cmd_strings[1:])
+
+    return " ".join(cmd_strings)
+
+
+def validate_command(command_line: str) -> bool:
+    """
+    Validates the command line, returning True if the command is valid, False otherwise.
+    """
+    command_pattern = r"^\s*(\S.*?)(?:\s+--|$)"
+
+    return bool(re.match(command_pattern, command_line))

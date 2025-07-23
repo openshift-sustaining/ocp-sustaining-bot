@@ -22,5 +22,5 @@ def setup_environment_variables():
     os.environ["OS_APP_CRED_ID"] = "OS_APP_CRED_ID"
     os.environ["OS_APP_CRED_SECRET"] = "OS_APP_CRED_SECRET"
     os.environ["OS_AUTH_TYPE"] = "v3applicationcredential"
-    os.environ["ALLOW_ALL_WORKSPACE_USERS"] = "ALLOW_ALL_WORKSPACE_USERS"
-    os.environ["ALLOWED_SLACK_USERS"] = "ALLOWED_SLACK_USERS"
+    os.environ["ALLOW_ALL_WORKSPACE_USERS"] = "false"
+    os.environ["ALLOWED_SLACK_USERS"] = "false"

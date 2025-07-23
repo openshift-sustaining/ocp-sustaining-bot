@@ -9,6 +9,7 @@ import logging
 from functools import wraps
 from typing import Dict, List, Optional, Callable, Any
 from config import config
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ def command_meta(
     Decorator to attach help metadata to command functions.
 
     Args:
-        name: The command name (e.g., 'create-openstack-vm')
+        name: The command name (e.g., 'openstack vm create')
         description: Brief description of what the command does
         arguments: Dictionary with argument names as keys and argument info as values
         examples: List of example usage strings
@@ -48,7 +49,8 @@ def command_meta(
         func._command_aliases = aliases or []
 
         # Register the command
-        COMMAND_REGISTRY[name] = func
+        if name != "help":
+            COMMAND_REGISTRY[name] = func
 
         # Register aliases
         if aliases:
@@ -267,7 +269,7 @@ def _build_general_help_text() -> str:
             "",
             "For detailed help on any command, use: `help <command-name>` or `<command-name> --help`",
             "",
-            "Example: `help create-openstack-vm` or `create-openstack-vm --help`",
+            "Example: `help openstack vm create` or `openstack vm create --help`",
         ]
     )
 
@@ -284,6 +286,16 @@ def get_cached_general_help() -> str:
     return _CACHED_HELP_TEXT
 
 
+def remove_help_from_command(command_name) -> str:
+    """
+    Remove help from command.
+    """
+    if command_name and check_help_flag(command_name):
+        return command_name.replace("help ", "").replace(" help", "").replace(" h", "")
+
+    return command_name
+
+
 def handle_help_command(
     say, user: Optional[str] = None, command_name: Optional[str] = None
 ):
@@ -297,6 +309,8 @@ def handle_help_command(
     """
     try:
         if command_name:
+            command_name = remove_help_from_command(command_name)
+
             # Show help for specific command
             if command_name in COMMAND_REGISTRY:
                 help_text = format_command_help(command_name, detailed=True)
@@ -380,14 +394,15 @@ def list_commands() -> List[str]:
     return list(COMMAND_REGISTRY.keys())
 
 
-def check_help_flag(params_dict: Dict[str, Any]) -> bool:
+def check_help_flag(command_line) -> bool:
     """
-    Check if the help flag is present in command parameters.
+    Check if the help flag is present in command line.
 
     Args:
-        params_dict: Dictionary of command parameters
+        command_line: string
 
     Returns:
-        True if help flag is present
+        True if help flag is present, False otherwise
     """
-    return params_dict.get("help", False) or params_dict.get("h", False)
+    help_pattern = re.compile(r"^help\b\s.+|.*\S.*\s(-{0,2}h(elp)?)$")
+    return bool(help_pattern.match(command_line))

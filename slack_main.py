@@ -1,7 +1,12 @@
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
-from sdk.tools.helpers import get_sub_commands_and_params
+from sdk.tools.helpers import (
+    get_named_and_positional_params,
+    validate_command,
+    remove_bot_username,
+    get_base_command,
+)
 from sdk.tools.help_system import handle_help_command, check_help_flag
 import logging
 import json
@@ -49,71 +54,56 @@ def mention_handler(body, say):
     command_line = body.get("event", {}).get("text", "").strip()
     region = config.AWS_DEFAULT_REGION
 
-    cmd_strings = [x for x in command_line.split(" ") if x.strip() != ""]
-    if len(cmd_strings) > 0:
-        if cmd_strings[0][:2] == "<@" and len(cmd_strings) > 1:
-            # Can't filter based on `app.event` since mentioning bot in DM
-            # is classified as `message` not as `app_mention`, so we remove
-            # the `@ocp-sustaining-bot` part
-            cmd = cmd_strings[1].lower()
-            command_line = " ".join(cmd_strings[1:])
-        else:
-            cmd = cmd_strings[0]
-            command_line = " ".join(cmd_strings)
+    if not validate_command(command_line):
+        say(
+            f"Hello <@{user}>! I couldn't understand your request. Please try again or type 'help' for assistance."
+        )
+        return
 
-        # Extract parameters using the utility function
-        params_dict, list_params = get_sub_commands_and_params(command_line)
+    command_line = remove_bot_username(command_line)
 
-        # Check if this is a help request for a specific command
-        if check_help_flag(params_dict):
-            handle_help_command(say, user, cmd)
-            return
+    base_command = get_base_command(command_line)
 
-        # Check if this is a help request (with or without specific command)
-        if cmd == "help":
-            # Extract the target command name from the command line
-            # Handle both "@bot help command" and "help command" formats
-            words = command_line.split()
-            if len(words) > 1:
-                command_name = words[1].lower()
-                handle_help_command(say, user, command_name)
-            else:
-                # Just "help" - show all commands
-                handle_help_command(say, user)
-            return
+    # Extract parameters using the utility function
+    named_params, positional_params = get_named_and_positional_params(command_line)
 
-        # Command routing
-        commands = {
-            "create-openstack-vm": lambda: handle_create_openstack_vm(
-                say, user, app, params_dict
-            ),
-            "list-openstack-vms": lambda: handle_list_openstack_vms(say, params_dict),
-            "hello": lambda: handle_hello(say, user),
-            "create-aws-vm": lambda: handle_create_aws_vm(
-                say,
-                user,
-                region,
-                app,  # pass `app` so that bot can send DM to users
-                params_dict,
-            ),
-            "aws-modify-vm": lambda: handle_aws_modify_vm(
-                say, region, user, params_dict
-            ),
-            "list-aws-vms": lambda: handle_list_aws_vms(say, region, user, params_dict),
-            "list-team-links": lambda: handle_list_team_links(say, user),
-        }
+    # Check if this is a help request for a specific command
+    if check_help_flag(command_line):
+        handle_help_command(say, user, base_command)
+        return
 
-        try:
-            commands[cmd]()
-            return
-        except KeyError:
-            # Invalid command, will revert to error message
-            pass
+    commands = {
+        "openstack vm create": lambda: handle_create_openstack_vm(
+            say, user, app, named_params
+        ),
+        "openstack vm list": lambda: handle_list_openstack_vms(say, named_params),
+        "hello": lambda: handle_hello(say, user),
+        "aws vm create": lambda: handle_create_aws_vm(
+            say,
+            user,
+            region,
+            app,  # pass `app` so that bot can send DM to users
+            named_params,
+        ),
+        "aws vm modify": lambda: handle_aws_modify_vm(say, region, user, named_params),
+        "aws vm list": lambda: handle_list_aws_vms(say, region, user, named_params),
+        "project links list": lambda: handle_list_team_links(say, user),
+        "help": lambda: handle_help_command(say, user),
+    }
 
-    # If no match is found, provide a default message
-    say(
-        f"Hello <@{user}>! I couldn't understand your request. Please try again or type 'help' for assistance."
-    )
+    command_function = commands.get(base_command)
+
+    if not command_function:
+        say(
+            f"Hello <@{user}>! I couldn't understand your request. Please try again or type 'help' for assistance."
+        )
+        return
+
+    try:
+        command_function()
+    except Exception as e:
+        logger.error(f"An error occurred and it was caught at the mention_handler: {e}")
+        say("An internal error occurred, please contact administrator.")
 
 
 # Main Entry Point

@@ -81,3 +81,7 @@ jobs:
         if: (contains(env.CHANGED, 'tests/') && !contains(env.CHANGED, 'sdk/')) || contains(env.CHANGED, 'slack_handlers/')
         run: |
           python -m pytest tests/test_runner.py::TestRunner::test_handlers
+
+      - name: Test Slack Commands
+        run: |
+          python -m pytest tests/test_runner.py::TestRunner::test_slack_commands
