@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def process_command_parameters(command_line: str) -> dict:
+def get_sub_commands_and_params(command_line: str) -> dict:
     """
     Parse command line arguments into a dictionary of parameters and their values and/or a list of parameters
 
@@ -39,33 +39,33 @@ def process_command_parameters(command_line: str) -> dict:
         arg1 arg2
 
     Examples:
-        >>> process_command_parameters("list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped --stop")
+        >>> get_sub_commands_and_params("list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped --stop")
         {'type': 't3.micro,t2.micro', 'state': 'pending,stopped', 'stop': True}
-        []
+        ["list-aws-vms"]
 
-        >>> process_command_parameters("command --region us-east-1 --verbose")
+        >>> get_sub_commands_and_params("command --region us-east-1 --verbose")
         {'region': 'us-east-1', 'verbose': True}
-        []
+        ["command"]
 
-        >>> process_command_parameters("command --name 'my server' --count 5")
+        >>> get_sub_commands_and_params("command --name 'my server' --count 5")
         {'name': 'my server', 'count': '5'}
-        []
+        ["command"]
 
-        >>> process_command_parameters("command --list item1, item2 , item3")
+        >>> get_sub_commands_and_params("command --list item1, item2 , item3")
         {'list': 'item1,item2,item3'}
-        []
+        ["command"]
 
-        >>> process_command_parameters("")
+        >>> get_sub_commands_and_params("")
         {}
         []
 
-        >>> process_command_parameters("command-with-no-params")
+        >>> get_sub_commands_and_params("command-with-no-params")
         {}
-        []
+        ["command-with-no-params"]
 
-        >>> process_command_parameters("list-aws-vms param1 param2 --type=t3.micro,t2.micro --state=pending,stopped --stop")
+        >>> get_sub_commands_and_params("list-aws-vms param1 param2 --type=t3.micro,t2.micro --state=pending,stopped --stop")
         {'type': 't3.micro,t2.micro', 'state': 'pending,stopped', 'stop': True}
-        ['param1','param2']
+        ['list-aws-vms', 'param1','param2']
 
     Notes:
         - Parameter names have leading dashes (-/--) stripped from keys
@@ -161,9 +161,6 @@ def process_command_parameters(command_line: str) -> dict:
     except Exception as e:
         logger.error(f"Error parsing command line '{command_line}': {e}")
 
-    if len(plain_params) > 0:
-        # skip over the command value e.g. like aws-list-vms
-        plain_params = plain_params[1:]
     return parsed_key_value_params, plain_params
 
 

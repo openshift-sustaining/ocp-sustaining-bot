@@ -1,7 +1,7 @@
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
-from sdk.tools.helpers import process_command_parameters
+from sdk.tools.helpers import get_sub_commands_and_params
 from sdk.tools.help_system import handle_help_command, check_help_flag
 import logging
 import json
@@ -62,7 +62,7 @@ def mention_handler(body, say):
             command_line = " ".join(cmd_strings)
 
         # Extract parameters using the utility function
-        params_dict, list_params = process_command_parameters(command_line)
+        params_dict, list_params = get_sub_commands_and_params(command_line)
 
         # Check if this is a help request for a specific command
         if check_help_flag(params_dict):
