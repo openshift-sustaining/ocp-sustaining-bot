@@ -81,25 +81,25 @@ python slack_main.py
 Creates an AWS OpenShift cluster using the provided cluster_name.
 
 
-**create-aws-vm**
+**aws vm create**
 Creates an AWS EC2 instance.
 
 Sample usage:
 ```
-create-aws-vm --os_name=linux --instance_type=t2.micro --key_pair=new
-create-aws-vm --os_name=linux --instance_type=t2.micro --key_pair=existing
+aws vm create --os_name=linux --instance_type=t2.micro --key_pair=new
+aws vm create --os_name=linux --instance_type=t2.micro --key_pair=existing
 ```
 
-**list-aws-vms**
+**aws vm list**
 Lists AWS EC2 instances
 
 Sample usage:
 ```
 
-list-aws-vms --state=pending,running,shutting-down,terminated,stopping,stopped
-list-aws-vms --type=t3.micro,t2.micro
-list-aws-vms --type=t3.micro,t2.micro --state=pending,stopped
-list-aws-vms --instance-ids=i-123456,i-987654
+aws vm list --state=pending,running,shutting-down,terminated,stopping,stopped
+aws vm list --type=t3.micro,t2.micro
+aws vm list --type=t3.micro,t2.micro --state=pending,stopped
+aws vm list --instance-ids=i-123456,i-987654
 
 ```
 Note 1:
@@ -108,29 +108,29 @@ See [https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/
 Search for t2.micro
 
 
-**create-openstack-vm <name> <image> <flavor> <network>**
+**openstack vm create <name> <image> <flavor> <network>**
 Creates an OpenStack VM with the specified name, os type, flavor, network and key name.
 
 Sample usage:
 ```
-create-openstack-vm --name=PAYMENTGATEWAY1 --os_name=fedora --flavor=ci.cpu.small --network=provider_net_ocp_dev --key_name=sustaining-bot-key
+openstack vm create --name=PAYMENTGATEWAY1 --os_name=fedora --flavor=ci.cpu.small --network=provider_net_ocp_dev --key_name=sustaining-bot-key
 ```
 
 
-**/aws-modify-vm --stop --vm-id=<instance_id>**
+**/aws vm modify --stop --vm-id=<instance_id>**
 Stops a specific AWS EC2 instance by its instance ID. The instance can be restarted later.
 
-**/aws-modify-vm --delete --vm-id=<instance_id>**
+**/aws vm modify --delete --vm-id=<instance_id>**
 Deletes a specific AWS EC2 instance by its instance ID.
 
 
-**list-openstack-vms <status>**
+**openstack vm list <status>**
 Lists OpenStack VMs.
 
 Sample usage:
 ```
-list-openstack-vms -status=ACTIVE
-list-openstack-vms -status=ERROR
+openstack vm list -status=ACTIVE
+openstack vm list -status=ERROR
 ```
 
 **hello**
