@@ -120,7 +120,6 @@ jobs:
         PUSH_ON_CRITICAL: ${{ inputs.push_when_critical_errors_in_scan }}
 
     - name: Push Docker image to Quay
-      if: steps.trivy-scan.outcome == 'success' || inputs.push_when_critical_errors_in_scan == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
