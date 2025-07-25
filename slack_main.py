@@ -1,7 +1,7 @@
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import config
-from sdk.tools.helpers import get_dict_of_command_parameters
+from sdk.tools.helpers import get_sub_commands_and_params
 from sdk.tools.help_system import handle_help_command, check_help_flag
 import logging
 import json
@@ -37,12 +37,15 @@ def is_user_allowed(user_id: str) -> bool:
 @app.event("message")
 def mention_handler(body, say):
     user = body.get("event", {}).get("user")
+
+    # Authorization check
     if config.ALLOW_ALL_WORKSPACE_USERS:
         if not is_user_allowed(user):
             say(
                 f"Sorry <@{user}>, you're not authorized to use this bot.Contact ocp-sustaining-admin@redhat.com for assistance."
             )
             return
+
     command_line = body.get("event", {}).get("text", "").strip()
     region = config.AWS_DEFAULT_REGION
 
@@ -59,7 +62,7 @@ def mention_handler(body, say):
             command_line = " ".join(cmd_strings)
 
         # Extract parameters using the utility function
-        params_dict = get_dict_of_command_parameters(command_line)
+        params_dict, list_params = get_sub_commands_and_params(command_line)
 
         # Check if this is a help request for a specific command
         if check_help_flag(params_dict):
@@ -79,6 +82,7 @@ def mention_handler(body, say):
                 handle_help_command(say, user)
             return
 
+        # Command routing
         commands = {
             "create-openstack-vm": lambda: handle_create_openstack_vm(
                 say, user, app, params_dict
