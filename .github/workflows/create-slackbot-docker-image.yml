@@ -1,5 +1,4 @@
 name: Create Docker Image for Slackbot
-
 on:
   workflow_dispatch:
     inputs:
@@ -17,16 +16,21 @@ on:
         description: 'Minor Version'
         required: true
         default: "1"
-
+      push_when_critical_errors_in_scan:
+        description: 'Push when Critical Errors in Scan'
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-
     env:
       IMAGE_NAME: "quay.io/ocp_sustaining_engineering/slack_backend"
       TAG_PATCH_VERSION: 0
       SLACKBOT_IMAGE_REPO_URL: "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_backend/tag/"
-
     steps:
     - name: Validate inputs
       run: |
@@ -35,75 +39,81 @@ jobs:
           exit 1
         fi
         if ! [[ "${{ inputs.tag_minor_version }}" =~ ^[0-9]+$ ]]; then
-          echo "Minor version must be numeric" 
+          echo "Minor version must be numeric"
           exit 1
         fi
-
     - name: Checkout code
       uses: actions/checkout@v4
-
     - name: Get Next Tag Version
-      # set up the next tag name for the Docker Image
-
-      # e.g. if there are 24 previous images starting with the tag name "1.1."
-      # the next tag name will be 1.1.25
-      run: |
-        PAGE=1
-        LIMIT=50
-        HAS_MORE=true
-        # Initialize an empty JSON array
-        ALL_TAGS='[]'
-        
-        FILTER_PARAMS="&onlyActiveTags=1&filter_tag_name=like:${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
-        
-        while [ "$HAS_MORE" = true ]; do
-          echo "Fetching page $PAGE..."
-          PAGE_AND_LIMIT_PARAMS="?limit=$LIMIT&page=$PAGE"
-          if ! JSON_RESPONSE=$(curl -s -f --max-time 300 "$SLACKBOT_IMAGE_REPO_URL$PAGE_AND_LIMIT_PARAMS$FILTER_PARAMS"); then
-            echo "Failed to fetch tags from API"
-            exit 1
-          fi
-        
-          # Extract just the tags and append to ALL_TAGS
-          TAGS=$(echo "$JSON_RESPONSE" | jq '.tags')
-          ALL_TAGS=$(jq -s 'add' <(echo "$ALL_TAGS") <(echo "$TAGS"))
-        
-          HAS_MORE=$(echo "$JSON_RESPONSE" | jq '.has_additional')
-          PAGE=$((PAGE + 1))
-        done
-        
-        # Now ALL_TAGS contains all the tags from all pages
-        COUNT_EXISTING=$(echo "$ALL_TAGS" | jq '. | length')
-        
-        if [ "$COUNT_EXISTING" -eq 0 ]; then
-            echo "There are no docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_on: error
+        command: |
+          PAGE=1
+          LIMIT=50
+          HAS_MORE=true
+          ALL_TAGS='[]'
+          FILTER_PARAMS="&onlyActiveTags=1&filter_tag_name=like:${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+          while [ "$HAS_MORE" = true ]; do
+            echo "Fetching page $PAGE..."
+            PAGE_AND_LIMIT_PARAMS="?limit=$LIMIT&page=$PAGE"
+            if ! JSON_RESPONSE=$(curl -s -f --max-time 300 "$SLACKBOT_IMAGE_REPO_URL$PAGE_AND_LIMIT_PARAMS$FILTER_PARAMS"); then
+              echo "Failed to fetch tags from API"
+              exit 1
+            fi
+            TAGS=$(echo "$JSON_RESPONSE" | jq '.tags')
+            ALL_TAGS=$(jq -s 'add' <(echo "$ALL_TAGS") <(echo "$TAGS"))
+            HAS_MORE=$(echo "$JSON_RESPONSE" | jq '.has_additional')
+            PAGE=$((PAGE + 1))
+          done
+          COUNT_EXISTING=$(echo "$ALL_TAGS" | jq '. | length')
+          if [ "$COUNT_EXISTING" -eq 0 ]; then
             NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${{ env.TAG_PATCH_VERSION }}"
-        else
-            echo "There are $COUNT_EXISTING docker images with version numbers that start with ${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}"
+          else
             MAX_VER=$(echo "$ALL_TAGS" | jq -r '.[].name'| sort -V | tail -n1)
             IFS='.' read -r MAJOR MINOR PATCH <<< "$MAX_VER"
             NEW_PATCH=$((PATCH + 1))
             NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${NEW_PATCH}"
-        fi        
-        echo "NEXT_TAG_VERSION=$NEXT_TAG_VERSION" >> $GITHUB_ENV
-        echo "Computed image version: $NEXT_TAG_VERSION"
-
-    - name: Mask Values and Login
-      shell: bash
+          fi
+          echo "NEXT_TAG_VERSION=$NEXT_TAG_VERSION" >> $GITHUB_ENV
+          echo "Computed image version: $NEXT_TAG_VERSION"
+    - name: Login to Quay.io
+      id: login
       run: |
+        set -e
         QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
         echo ::add-mask::$QUAY_PASSWORD
         QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
         echo ::add-mask::$QUAY_USERNAME
-        echo "$QUAY_PASSWORD" | docker login quay.io -u $QUAY_USERNAME --password-stdin 2>/dev/null
-
-    - name: Build and push Docker image
+        echo ":closed_lock_with_key: Logging in to quay.io..."
+        echo "$QUAY_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
+    - name: Build Docker image locally
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+        load: true
+      timeout-minutes: 30
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      id: trivy-scan
+      with:
+        image-ref: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL'
+        exit-code: ${{ inputs.push_when_critical_errors_in_scan == 'true' && '0' || '1' }}
+    - name: Push Docker image to Quay
+      if: steps.trivy-scan.outcome == 'success' || inputs.push_when_critical_errors_in_scan == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
-
-    - name: Logout
-      run: |
-        docker logout quay.io
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'

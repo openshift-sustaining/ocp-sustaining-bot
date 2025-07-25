@@ -24,7 +24,7 @@ app = App(token=config.SLACK_BOT_TOKEN)
 try:
     ALLOWED_SLACK_USERS = config.ALLOWED_SLACK_USERS
 except json.JSONDecodeError:
-    logging.error("ALLOWED_SLACK_USERS must be a valid JSON string.")
+    logger.error("ALLOWED_SLACK_USERS must be a valid JSON string.")
     sys.exit(1)
 
 
