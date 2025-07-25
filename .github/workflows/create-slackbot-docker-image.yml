@@ -100,15 +100,25 @@ jobs:
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
         load: true
       timeout-minutes: 30
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      id: trivy-scan
-      with:
-        image-ref: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        severity: 'CRITICAL'
-        exit-code: ${{ inputs.push_when_critical_errors_in_scan == 'true' && '0' || '1' }}
+    - name: Trivy scan gating
+      run: |
+        if [ "$PUSH_ON_CRITICAL" == "true" ]; then
+          EXIT_CODE=0
+        else
+          EXIT_CODE=1
+        fi
+    
+        echo "Using Trivy exit code: $EXIT_CODE"
+    
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image \
+          --severity CRITICAL \
+          --format table \
+          --exit-code $EXIT_CODE \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+      env:
+        PUSH_ON_CRITICAL: ${{ inputs.push_when_critical_errors_in_scan }}
+
     - name: Push Docker image to Quay
       if: steps.trivy-scan.outcome == 'success' || inputs.push_when_critical_errors_in_scan == 'true'
       uses: docker/build-push-action@v5
@@ -116,7 +126,4 @@ jobs:
         context: .
         push: true
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: 'trivy-results.sarif'
+
