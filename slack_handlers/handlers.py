@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
             "type": "str",
         }
     },
-    examples=["help", "help create-openstack-vm"],
+    examples=["help", "help openstack vm create"],
 )
 def handle_help(say, user, command_name=None):
     """Handle help command using the new help system."""
@@ -37,7 +37,7 @@ def handle_help(say, user, command_name=None):
 
 # Helper function to handle creating an OpenStack VM
 @command_meta(
-    name="create-openstack-vm",
+    name="openstack vm create",
     description="Create an OpenStack VM with specified configuration",
     arguments={
         "name": {"description": "Name for the VM", "required": True, "type": "str"},
@@ -61,7 +61,7 @@ def handle_help(say, user, command_name=None):
         },
     },
     examples=[
-        "create-openstack-vm --name=myvm --os_name=fedora --flavor=ci.cpu.small --key_pair=new"
+        "openstack vm create --name=myvm --os_name=fedora --flavor=ci.cpu.small --key_pair=new"
     ],
 )
 def handle_create_openstack_vm(say, user, app, params_dict):
@@ -90,7 +90,7 @@ def handle_create_openstack_vm(say, user, app, params_dict):
         if missing_params:
             say(
                 f":warning: Missing required parameters: {', '.join(missing_params)}. "
-                f"Usage: create-openstack-vm --name=<name> --os_name=<os_name> --flavor=<flavor> --key_pair=[new|existing]\n"
+                f"Usage: openstack vm create --name=<name> --os_name=<os_name> --flavor=<flavor> --key_pair=[new|existing]\n"
                 f"Supported OS names: {', '.join(config.OS_IMAGE_MAP.keys())}"
             )
             return
@@ -193,7 +193,7 @@ def handle_create_openstack_vm(say, user, app, params_dict):
 
 # Helper function to list OpenStack VMs with error handling
 @command_meta(
-    name="list-openstack-vms",
+    name="openstack vm list",
     description="List OpenStack VMs with optional status filtering",
     arguments={
         "status": {
@@ -205,9 +205,9 @@ def handle_create_openstack_vm(say, user, app, params_dict):
         }
     },
     examples=[
-        "list-openstack-vms",
-        "list-openstack-vms --status=ACTIVE",
-        "list-openstack-vms --status=SHUTOFF",
+        "openstack vm list",
+        "openstack vm list --status=ACTIVE",
+        "openstack vm list --status=SHUTOFF",
     ],
 )
 def handle_list_openstack_vms(say, params_dict):
@@ -278,7 +278,7 @@ def handle_hello(say, user):
 
 
 @command_meta(
-    name="create-aws-vm",
+    name="aws vm create",
     description="Create an AWS EC2 instance",
     arguments={
         "os_name": {
@@ -301,8 +301,8 @@ def handle_hello(say, user):
         },
     },
     examples=[
-        "create-aws-vm --os_name=linux --instance_type=t2.micro --key_pair=new",
-        "create-aws-vm --os_name=linux --instance_type=t3.small --key_pair=existing",
+        "aws vm create --os_name=linux --instance_type=t2.micro --key_pair=new",
+        "aws vm create --os_name=linux --instance_type=t3.small --key_pair=existing",
     ],
 )
 def handle_create_aws_vm(say, user, region, app, params_dict):
@@ -332,7 +332,7 @@ def handle_create_aws_vm(say, user, region, app, params_dict):
                 missing_params.append("key_pair")
 
             say(
-                f":warning: Missing required parameters: {', '.join(missing_params)}. Usage: create-aws-vm --os_name=<os> --instance_type=<type> --key_pair=<key>"
+                f":warning: Missing required parameters: {', '.join(missing_params)}. Usage: aws vm create --os_name=<os> --instance_type=<type> --key_pair=<key>"
             )
             return
 
@@ -540,7 +540,7 @@ def helper_display_dict_output_as_table(instances_dict, print_keys, say, block_m
 
 # Helper function to list AWS EC2 instances
 @command_meta(
-    name="list-aws-vms",
+    name="aws vm list",
     description="List AWS EC2 instances with optional filtering",
     arguments={
         "state": {
@@ -562,10 +562,10 @@ def helper_display_dict_output_as_table(instances_dict, print_keys, say, block_m
         },
     },
     examples=[
-        "list-aws-vms",
-        "list-aws-vms --state=running,stopped",
-        "list-aws-vms --type=t2.micro,t3.small",
-        "list-aws-vms --instance-ids=i-123456,i-789012",
+        "aws vm list",
+        "aws vm list --state=running,stopped",
+        "aws vm list --type=t2.micro,t3.small",
+        "aws vm list --instance-ids=i-123456,i-789012",
     ],
 )
 def handle_list_aws_vms(say, region, user, params_dict):
@@ -606,7 +606,7 @@ def handle_list_aws_vms(say, region, user, params_dict):
 
 
 @command_meta(
-    name="aws-modify-vm",
+    name="aws vm modify",
     description="Stop or delete AWS EC2 instances",
     arguments={
         "vm-id": {
@@ -622,8 +622,8 @@ def handle_list_aws_vms(say, region, user, params_dict):
         },
     },
     examples=[
-        "aws-modify-vm --stop --vm-id=i-1234567890abcdef0",
-        "aws-modify-vm --delete --vm-id=i-1234567890abcdef0",
+        "aws vm modify --stop --vm-id=i-1234567890abcdef0",
+        "aws vm modify --delete --vm-id=i-1234567890abcdef0",
     ],
 )
 def handle_aws_modify_vm(say, region, user, params_dict):
@@ -642,7 +642,7 @@ def handle_aws_modify_vm(say, region, user, params_dict):
 
         if not vm_id:
             say(
-                ":warning: Missing required parameter `--vm-id`. Usage: `aws-modify-vm --stop --vm-id=<id>` or `aws-modify-vm --delete --vm-id=<id>`"
+                ":warning: Missing required parameter `--vm-id`. Usage: `aws vm modify --stop --vm-id=<id>` or `aws vm modify --delete --vm-id=<id>`"
             )
             return
 
@@ -713,9 +713,9 @@ def handle_aws_modify_vm(say, region, user, params_dict):
 
 # Helper function to list important team links
 @command_meta(
-    name="list-team-links",
+    name="project links list",
     description="Display important team links",
-    examples=["list-team-links"],
+    examples=["project links list"],
 )
 def handle_list_team_links(say, user):
     say(

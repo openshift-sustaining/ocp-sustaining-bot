@@ -36,3 +36,10 @@ def setup_environment_variables():
     os.environ["VAULT_MOUNT_POINT_FOR_DYNACONF"] = "VAULT_MOUNT_POINT_FOR_DYNACONF"
     os.environ["VAULT_PATH_FOR_DYNACONF"] = "VAULT_PATH_FOR_DYNACONF"
     os.environ["VAULT_KV_VERSION_FOR_DYNACONF"] = "VAULT_KV_VERSION_FOR_DYNACONF"
+
+
+@pytest.fixture(autouse=True)
+def populate_command_registry():
+    """Ensure COMMAND_REGISTRY is populated for tests."""
+    import slack_handlers.handlers  # noqa: F401
+    from sdk.tools.help_system import COMMAND_REGISTRY  # noqa: F401
