@@ -427,3 +427,313 @@ def test_create_servers_floating_ip_priority(mock_openstack):
 
     instance = instances[0]
     assert instance["private_ip"] == "10.123.50.11"
+
+
+# Tests for OpenStack VM lifecycle management
+
+
+@mock.patch("openstack.connection.Connection")
+def test_stop_server_success(mock_openstack):
+    """Test successful server stop operation."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.name = "test-server"
+    mock_server.status = "ACTIVE"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+    mock_compute.stop_server.return_value = None
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.stop_server("test-server-id")
+
+    assert result["success"] is True
+    assert result["server_id"] == "test-server-id"
+    assert result["server_name"] == "test-server"
+    assert result["previous_status"] == "ACTIVE"
+    assert result["current_status"] == "stopping"
+
+    mock_compute.find_server.assert_called_once_with(
+        "test-server-id", ignore_missing=False
+    )
+    mock_compute.stop_server.assert_called_once_with(mock_server)
+
+
+@mock.patch("openstack.connection.Connection")
+def test_stop_server_already_stopped(mock_openstack):
+    """Test stopping a server that is already stopped."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.status = "SHUTOFF"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.stop_server("test-server-id")
+
+    assert result["success"] is False
+    assert "already stopped" in result["error"]
+
+    mock_compute.stop_server.assert_not_called()
+
+
+@mock.patch("openstack.connection.Connection")
+def test_stop_server_invalid_status(mock_openstack):
+    """Test stopping a server with invalid status."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.status = "ERROR"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.stop_server("test-server-id")
+
+    assert result["success"] is False
+    assert "cannot be stopped" in result["error"]
+
+    mock_compute.stop_server.assert_not_called()
+
+
+@mock.patch("openstack.connection.Connection")
+def test_start_server_success(mock_openstack):
+    """Test successful server start operation."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.name = "test-server"
+    mock_server.status = "SHUTOFF"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+    mock_compute.start_server.return_value = None
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.start_server("test-server-id")
+
+    assert result["success"] is True
+    assert result["server_id"] == "test-server-id"
+    assert result["server_name"] == "test-server"
+    assert result["previous_status"] == "SHUTOFF"
+    assert result["current_status"] == "starting"
+
+    mock_compute.find_server.assert_called_once_with(
+        "test-server-id", ignore_missing=False
+    )
+    mock_compute.start_server.assert_called_once_with(mock_server)
+
+
+@mock.patch("openstack.connection.Connection")
+def test_start_server_already_running(mock_openstack):
+    """Test starting a server that is already running."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.status = "ACTIVE"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.start_server("test-server-id")
+
+    assert result["success"] is False
+    assert "already running" in result["error"]
+
+    mock_compute.start_server.assert_not_called()
+
+
+@mock.patch("openstack.connection.Connection")
+def test_start_server_from_suspended(mock_openstack):
+    """Test starting a server from suspended state."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.name = "test-server"
+    mock_server.status = "SUSPENDED"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+    mock_compute.start_server.return_value = None
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.start_server("test-server-id")
+
+    assert result["success"] is True
+    assert result["previous_status"] == "SUSPENDED"
+
+    mock_compute.start_server.assert_called_once_with(mock_server)
+
+
+@mock.patch("openstack.connection.Connection")
+def test_delete_server_success(mock_openstack):
+    """Test successful server deletion."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.name = "test-server"
+    mock_server.status = "ACTIVE"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+    mock_compute.delete_server.return_value = None
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.delete_server("test-server-id")
+
+    assert result["success"] is True
+    assert result["server_id"] == "test-server-id"
+    assert result["server_name"] == "test-server"
+    assert result["previous_status"] == "ACTIVE"
+    assert result["current_status"] == "deleting"
+
+    mock_compute.find_server.assert_called_once_with(
+        "test-server-id", ignore_missing=False
+    )
+    mock_compute.delete_server.assert_called_once_with(mock_server)
+
+
+@mock.patch("openstack.connection.Connection")
+def test_delete_server_already_deleted(mock_openstack):
+    """Test deleting a server that is already deleted."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.status = "DELETED"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.delete_server("test-server-id")
+
+    assert result["success"] is False
+    assert "already in status" in result["error"]
+
+    mock_compute.delete_server.assert_not_called()
+
+
+@mock.patch("openstack.connection.Connection")
+def test_delete_server_error_status(mock_openstack):
+    """Test deleting a server with ERROR status."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.status = "ERROR"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.delete_server("test-server-id")
+
+    assert result["success"] is False
+    assert "already in status 'ERROR'" in result["error"]
+
+    mock_compute.delete_server.assert_not_called()
+
+
+@mock.patch("openstack.connection.Connection")
+def test_lifecycle_server_not_found(mock_openstack):
+    """Test lifecycle operations on non-existent server."""
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = None
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+
+    # Test stop
+    result = openstack_helper.stop_server("non-existent-id")
+    assert result["success"] is False
+    assert "not found" in result["error"]
+
+    # Test start
+    result = openstack_helper.start_server("non-existent-id")
+    assert result["success"] is False
+    assert "not found" in result["error"]
+
+    # Test delete
+    result = openstack_helper.delete_server("non-existent-id")
+    assert result["success"] is False
+    assert "not found" in result["error"]
+
+
+@mock.patch("openstack.connection.Connection")
+def test_lifecycle_operations_with_exceptions(mock_openstack):
+    """Test lifecycle operations when OpenStack API throws exceptions."""
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.side_effect = Exception("API Error")
+
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+
+    # Test stop with exception
+    result = openstack_helper.stop_server("test-server-id")
+    assert result["success"] is False
+    assert "Failed to stop server" in result["error"]
+
+    # Test start with exception
+    result = openstack_helper.start_server("test-server-id")
+    assert result["success"] is False
+    assert "Failed to start server" in result["error"]
+
+    # Test delete with exception
+    result = openstack_helper.delete_server("test-server-id")
+    assert result["success"] is False
+    assert "Failed to delete server" in result["error"]
+
+
+@mock.patch("openstack.connection.Connection")
+def test_lifecycle_operations_with_api_call_exceptions(mock_openstack):
+    """Test lifecycle operations when individual API calls throw exceptions."""
+    mock_server = mock.MagicMock()
+    mock_server.id = "test-server-id"
+    mock_server.name = "test-server"
+    mock_server.status = "ACTIVE"
+
+    mock_compute = mock.MagicMock()
+    mock_compute.find_server.return_value = mock_server
+
+    # Test stop server API call exception
+    mock_compute.stop_server.side_effect = Exception("Stop API Error")
+    mock_openstack.return_value.compute = mock_compute
+
+    openstack_helper = OpenStackHelper()
+    result = openstack_helper.stop_server("test-server-id")
+
+    assert result["success"] is False
+    assert "Failed to stop server" in result["error"]
+
+    # Test start server API call exception
+    mock_server.status = "SHUTOFF"
+    mock_compute.start_server.side_effect = Exception("Start API Error")
+
+    result = openstack_helper.start_server("test-server-id")
+
+    assert result["success"] is False
+    assert "Failed to start server" in result["error"]
+
+    # Test delete server API call exception
+    mock_server.status = "ACTIVE"
+    mock_compute.delete_server.side_effect = Exception("Delete API Error")
+
+    result = openstack_helper.delete_server("test-server-id")
+
+    assert result["success"] is False
+    assert "Failed to delete server" in result["error"]
