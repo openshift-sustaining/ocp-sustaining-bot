@@ -20,6 +20,7 @@ from slack_handlers.handlers import (
     handle_list_aws_vms,
     handle_list_team_links,
     handle_aws_modify_vm,
+    handle_openstack_modify_vm,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,9 @@ def mention_handler(body, say):
             say, user, app, named_params
         ),
         "openstack vm list": lambda: handle_list_openstack_vms(say, named_params),
+        "openstack vm modify": lambda: handle_openstack_modify_vm(
+            say, user, named_params
+        ),
         "hello": lambda: handle_hello(say, user),
         "aws vm create": lambda: handle_create_aws_vm(
             say,

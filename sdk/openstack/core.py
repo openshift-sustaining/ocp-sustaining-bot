@@ -236,3 +236,135 @@ class OpenStackHelper:
             # Return empty key
 
         return key
+
+    def stop_server(self, server_id: str):
+        """
+        Stop a specific OpenStack server by ID.
+
+        :param server_id: The ID of the server to stop
+        :return: Dictionary with operation status and details
+        """
+        try:
+            # Get server details first to validate it exists
+            server = self.conn.compute.find_server(server_id, ignore_missing=False)
+            if not server:
+                return {"success": False, "error": f"Server {server_id} not found"}
+
+            current_status = server.status
+
+            if current_status == "SHUTOFF":
+                return {
+                    "success": False,
+                    "error": f"Server {server_id} is already stopped (SHUTOFF)",
+                }
+
+            if current_status not in ["ACTIVE", "SUSPENDED"]:
+                return {
+                    "success": False,
+                    "error": f"Server {server_id} is in status '{current_status}' and cannot be stopped",
+                }
+
+            # Stop the server
+            self.conn.compute.stop_server(server)
+
+            logger.info(f"Successfully initiated stop for server {server_id}")
+
+            return {
+                "success": True,
+                "server_id": server_id,
+                "server_name": server.name,
+                "previous_status": current_status,
+                "current_status": "stopping",
+            }
+
+        except Exception as e:
+            logger.error(f"Error stopping server {server_id}: {str(e)}")
+            logger.error(traceback.format_exc())
+            return {"success": False, "error": f"Failed to stop server: {str(e)}"}
+
+    def start_server(self, server_id: str):
+        """
+        Start a specific OpenStack server by ID.
+
+        :param server_id: The ID of the server to start
+        :return: Dictionary with operation status and details
+        """
+        try:
+            # Get server details first to validate it exists
+            server = self.conn.compute.find_server(server_id, ignore_missing=False)
+            if not server:
+                return {"success": False, "error": f"Server {server_id} not found"}
+
+            current_status = server.status
+
+            if current_status == "ACTIVE":
+                return {
+                    "success": False,
+                    "error": f"Server {server_id} is already running (ACTIVE)",
+                }
+
+            if current_status not in ["SHUTOFF", "SUSPENDED"]:
+                return {
+                    "success": False,
+                    "error": f"Server {server_id} is in status '{current_status}' and cannot be started",
+                }
+
+            # Start the server
+            self.conn.compute.start_server(server)
+
+            logger.info(f"Successfully initiated start for server {server_id}")
+
+            return {
+                "success": True,
+                "server_id": server_id,
+                "server_name": server.name,
+                "previous_status": current_status,
+                "current_status": "starting",
+            }
+
+        except Exception as e:
+            logger.error(f"Error starting server {server_id}: {str(e)}")
+            logger.error(traceback.format_exc())
+            return {"success": False, "error": f"Failed to start server: {str(e)}"}
+
+    def delete_server(self, server_id: str):
+        """
+        Delete (terminate) a specific OpenStack server by ID.
+
+        :param server_id: The ID of the server to delete
+        :return: Dictionary with operation status and details
+        """
+        try:
+            # Get server details first to validate it exists
+            server = self.conn.compute.find_server(server_id, ignore_missing=False)
+            if not server:
+                return {"success": False, "error": f"Server {server_id} not found"}
+
+            current_status = server.status
+            server_name = server.name
+
+            if current_status in ["DELETED", "ERROR"]:
+                return {
+                    "success": False,
+                    "error": f"Server {server_id} is already in status '{current_status}'",
+                }
+
+            # Delete the server
+            self.conn.compute.delete_server(server)
+
+            logger.info(
+                f"Successfully initiated deletion for server {server_id} (name: {server_name})"
+            )
+
+            return {
+                "success": True,
+                "server_id": server_id,
+                "server_name": server_name,
+                "previous_status": current_status,
+                "current_status": "deleting",
+            }
+
+        except Exception as e:
+            logger.error(f"Error deleting server {server_id}: {str(e)}")
+            logger.error(traceback.format_exc())
+            return {"success": False, "error": f"Failed to delete server: {str(e)}"}
