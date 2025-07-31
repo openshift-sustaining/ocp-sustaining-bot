@@ -718,6 +718,10 @@ def handle_aws_modify_vm(say, region, user, params_dict):
     examples=["project links list"],
 )
 def handle_list_team_links(say, user):
+    if not hasattr(config, "LIST_OF_ALL_TEAM_LINKS"):
+        logger.error("LIST_OF_ALL_TEAM_LINKS are not set properly")
+        say("There are no links available.")
+        return
     say(
         text=".",
         blocks=helper_setup_slack_header_line(" Here are the important team links:"),
@@ -726,7 +730,7 @@ def handle_list_team_links(say, user):
     link_lines = "\n".join(
         [
             f":small_orange_diamond: *{title}:* <{url}|Link>"
-            for title, url in config.USEFUL_PROJECT_LINKS.items()
+            for title, url in config.LIST_OF_ALL_TEAM_LINKS.items()
         ]
     )
 

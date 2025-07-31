@@ -9,8 +9,6 @@ from sdk.tools.helpers import (
 )
 from sdk.tools.help_system import handle_help_command, check_help_flag
 import logging
-import json
-import sys
 
 from slack_handlers.handlers import (
     handle_create_openstack_vm,
@@ -26,15 +24,9 @@ logger = logging.getLogger(__name__)
 
 app = App(token=config.SLACK_BOT_TOKEN)
 
-try:
-    ALLOWED_SLACK_USERS = config.ALLOWED_SLACK_USERS
-except json.JSONDecodeError:
-    logger.error("ALLOWED_SLACK_USERS must be a valid JSON string.")
-    sys.exit(1)
-
 
 def is_user_allowed(user_id: str) -> bool:
-    return user_id in ALLOWED_SLACK_USERS.values()
+    return user_id in config.ALLOWED_SLACK_USERS.values()
 
 
 # Define the main event handler function
