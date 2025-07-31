@@ -1,7 +1,7 @@
 import unittest.mock as mock
 from unittest.mock import MagicMock
 
-from slack_handlers.handlers import handle_aws_modify_vm
+from slack_handlers.handlers import handle_aws_modify_vm, handle_openstack_modify_vm
 
 
 @mock.patch("slack_handlers.handlers.EC2Helper")
@@ -174,3 +174,313 @@ def test_handle_aws_modify_vm_exception(mock_logger, mock_ec2_helper):
     mock_say.assert_called_once()
     assert "internal error occurred" in mock_say.call_args[0][0]
     assert "contact the administrator" in mock_say.call_args[0][0]
+
+
+# Tests for OpenStack VM lifecycle management handlers
+
+
+@mock.patch("slack_handlers.handlers.OpenStackHelper")
+def test_handle_openstack_modify_vm_stop_success(mock_openstack_helper):
+    """Test successful stop operation via handler."""
+    mock_say = mock.MagicMock()
+    mock_helper_instance = mock.MagicMock()
+    mock_openstack_helper.return_value = mock_helper_instance
+
+    mock_helper_instance.stop_server.return_value = {
+        "success": True,
+        "server_id": "test-server-id",
+        "server_name": "test-server",
+        "previous_status": "ACTIVE",
+        "current_status": "stopping",
+    }
+
+    params_dict = {"vm-id": "test-server-id", "stop": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_helper_instance.stop_server.assert_called_once_with("test-server-id")
+    assert mock_say.call_count == 2
+    # Check progress message
+    progress_call = mock_say.call_args_list[0][0][0]
+    assert ":hourglass_flowing_sand:" in progress_call
+    assert "Attempting to stop server" in progress_call
+    # Check success message
+    result_call = mock_say.call_args_list[1][0][0]
+    assert ":white_check_mark:" in result_call
+    assert "Successfully initiated stop" in result_call
+    assert "test-server" in result_call
+
+
+@mock.patch("slack_handlers.handlers.OpenStackHelper")
+def test_handle_openstack_modify_vm_start_success(mock_openstack_helper):
+    """Test successful start operation via handler."""
+    mock_say = mock.MagicMock()
+    mock_helper_instance = mock.MagicMock()
+    mock_openstack_helper.return_value = mock_helper_instance
+
+    mock_helper_instance.start_server.return_value = {
+        "success": True,
+        "server_id": "test-server-id",
+        "server_name": "test-server",
+        "previous_status": "SHUTOFF",
+        "current_status": "starting",
+    }
+
+    params_dict = {"vm-id": "test-server-id", "start": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_helper_instance.start_server.assert_called_once_with("test-server-id")
+    assert mock_say.call_count == 2
+    # Check progress message
+    progress_call = mock_say.call_args_list[0][0][0]
+    assert ":hourglass_flowing_sand:" in progress_call
+    assert "Attempting to start server" in progress_call
+    # Check success message
+    result_call = mock_say.call_args_list[1][0][0]
+    assert ":white_check_mark:" in result_call
+    assert "Successfully initiated start" in result_call
+    assert "test-server" in result_call
+
+
+@mock.patch("slack_handlers.handlers.OpenStackHelper")
+def test_handle_openstack_modify_vm_delete_success(mock_openstack_helper):
+    """Test successful delete operation via handler."""
+    mock_say = mock.MagicMock()
+    mock_helper_instance = mock.MagicMock()
+    mock_openstack_helper.return_value = mock_helper_instance
+
+    mock_helper_instance.delete_server.return_value = {
+        "success": True,
+        "server_id": "test-server-id",
+        "server_name": "test-server",
+        "previous_status": "ACTIVE",
+        "current_status": "deleting",
+    }
+
+    params_dict = {"vm-id": "test-server-id", "delete": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_helper_instance.delete_server.assert_called_once_with("test-server-id")
+    assert mock_say.call_count == 2
+    # Check warning/progress message
+    warning_call = mock_say.call_args_list[0][0][0]
+    assert ":warning:" in warning_call
+    assert "Deletion Warning" in warning_call
+    assert "Proceeding with deletion" in warning_call
+    # Check success message
+    result_call = mock_say.call_args_list[1][0][0]
+    assert ":white_check_mark:" in result_call
+    assert "Successfully initiated deletion" in result_call
+    assert "test-server" in result_call
+
+
+@mock.patch("slack_handlers.handlers.OpenStackHelper")
+def test_handle_openstack_modify_vm_stop_failure(mock_openstack_helper):
+    """Test failed stop operation via handler."""
+    mock_say = mock.MagicMock()
+    mock_helper_instance = mock.MagicMock()
+    mock_openstack_helper.return_value = mock_helper_instance
+
+    mock_helper_instance.stop_server.return_value = {
+        "success": False,
+        "error": "Server is already stopped (status: SHUTOFF)",
+    }
+
+    params_dict = {"vm-id": "test-server-id", "stop": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_helper_instance.stop_server.assert_called_once_with("test-server-id")
+    assert mock_say.call_count == 2
+    # Check progress message
+    progress_call = mock_say.call_args_list[0][0][0]
+    assert ":hourglass_flowing_sand:" in progress_call
+    assert "Attempting to stop server" in progress_call
+    # Check error message
+    error_call = mock_say.call_args_list[1][0][0]
+    assert ":x:" in error_call
+    assert "Failed to stop server" in error_call
+    assert "already stopped" in error_call
+
+
+@mock.patch("slack_handlers.handlers.OpenStackHelper")
+def test_handle_openstack_modify_vm_start_failure(mock_openstack_helper):
+    """Test failed start operation via handler."""
+    mock_say = mock.MagicMock()
+    mock_helper_instance = mock.MagicMock()
+    mock_openstack_helper.return_value = mock_helper_instance
+
+    mock_helper_instance.start_server.return_value = {
+        "success": False,
+        "error": "Server is already running (status: ACTIVE)",
+    }
+
+    params_dict = {"vm-id": "test-server-id", "start": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_helper_instance.start_server.assert_called_once_with("test-server-id")
+    assert mock_say.call_count == 2
+    # Check progress message
+    progress_call = mock_say.call_args_list[0][0][0]
+    assert ":hourglass_flowing_sand:" in progress_call
+    assert "Attempting to start server" in progress_call
+    # Check error message
+    error_call = mock_say.call_args_list[1][0][0]
+    assert ":x:" in error_call
+    assert "Failed to start server" in error_call
+    assert "already running" in error_call
+
+
+@mock.patch("slack_handlers.handlers.OpenStackHelper")
+def test_handle_openstack_modify_vm_delete_failure(mock_openstack_helper):
+    """Test failed delete operation via handler."""
+    mock_say = mock.MagicMock()
+    mock_helper_instance = mock.MagicMock()
+    mock_openstack_helper.return_value = mock_helper_instance
+
+    mock_helper_instance.delete_server.return_value = {
+        "success": False,
+        "error": "Server with ID 'test-server-id' not found",
+    }
+
+    params_dict = {"vm-id": "test-server-id", "delete": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_helper_instance.delete_server.assert_called_once_with("test-server-id")
+    assert mock_say.call_count == 2
+    # Check warning/progress message
+    warning_call = mock_say.call_args_list[0][0][0]
+    assert ":warning:" in warning_call
+    assert "Deletion Warning" in warning_call
+    # Check error message
+    error_call = mock_say.call_args_list[1][0][0]
+    assert ":x:" in error_call
+    assert "Failed to delete server" in error_call
+    assert "not found" in error_call
+
+
+def test_handle_openstack_modify_vm_missing_vm_id():
+    """Test handler with missing vm-id parameter."""
+    mock_say = mock.MagicMock()
+
+    params_dict = {"stop": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_say.assert_called_once()
+    call_args = mock_say.call_args[0][0]
+    assert ":warning:" in call_args
+    assert "Missing required parameter" in call_args
+    assert "--vm-id" in call_args
+
+
+def test_handle_openstack_modify_vm_no_action():
+    """Test handler with no action specified."""
+    mock_say = mock.MagicMock()
+
+    params_dict = {"vm-id": "test-server-id"}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_say.assert_called_once()
+    call_args = mock_say.call_args[0][0]
+    assert ":warning:" in call_args
+    assert "You must specify one action" in call_args
+    assert "--stop" in call_args and "--start" in call_args and "--delete" in call_args
+
+
+def test_handle_openstack_modify_vm_multiple_actions():
+    """Test handler with multiple actions specified."""
+    mock_say = mock.MagicMock()
+
+    params_dict = {"vm-id": "test-server-id", "stop": True, "start": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_say.assert_called_once()
+    call_args = mock_say.call_args[0][0]
+    assert ":warning:" in call_args
+    assert "Please specify only one action at a time" in call_args
+    assert "--stop" in call_args and "--start" in call_args and "--delete" in call_args
+
+
+def test_handle_openstack_modify_vm_all_three_actions():
+    """Test handler with all three actions specified."""
+    mock_say = mock.MagicMock()
+
+    params_dict = {
+        "vm-id": "test-server-id",
+        "stop": True,
+        "start": True,
+        "delete": True,
+    }
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    mock_say.assert_called_once()
+    call_args = mock_say.call_args[0][0]
+    assert ":warning:" in call_args
+    assert "Please specify only one action at a time" in call_args
+    assert "--stop" in call_args and "--start" in call_args and "--delete" in call_args
+
+
+@mock.patch("slack_handlers.handlers.OpenStackHelper")
+def test_handle_openstack_modify_vm_exception_handling(mock_openstack_helper):
+    """Test handler with unexpected exception."""
+    mock_say = mock.MagicMock()
+    mock_helper_instance = mock.MagicMock()
+    mock_openstack_helper.return_value = mock_helper_instance
+
+    # Simulate an exception during the operation
+    mock_helper_instance.stop_server.side_effect = Exception("Unexpected error")
+
+    params_dict = {"vm-id": "test-server-id", "stop": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    assert mock_say.call_count == 2
+    # Check progress message
+    progress_call = mock_say.call_args_list[0][0][0]
+    assert ":hourglass_flowing_sand:" in progress_call
+    assert "Attempting to stop server" in progress_call
+    # Check error message
+    error_call = mock_say.call_args_list[1][0][0]
+    assert ":x:" in error_call
+    assert "An internal error occurred" in error_call
+
+
+@mock.patch("slack_handlers.handlers.OpenStackHelper")
+def test_handle_openstack_modify_vm_with_detailed_response(mock_openstack_helper):
+    """Test handler response formatting with detailed server information."""
+    mock_say = mock.MagicMock()
+    mock_helper_instance = mock.MagicMock()
+    mock_openstack_helper.return_value = mock_helper_instance
+
+    mock_helper_instance.stop_server.return_value = {
+        "success": True,
+        "server_id": "abc123-def456-ghi789",
+        "server_name": "production-web-server-01",
+        "previous_status": "ACTIVE",
+        "current_status": "stopping",
+    }
+
+    params_dict = {"vm-id": "abc123-def456-ghi789", "stop": True}
+
+    handle_openstack_modify_vm(mock_say, "test_user", params_dict)
+
+    assert mock_say.call_count == 2
+    # Check progress message
+    progress_call = mock_say.call_args_list[0][0][0]
+    assert ":hourglass_flowing_sand:" in progress_call
+    assert "abc123-def456-ghi789" in progress_call
+    # Check success message with detailed information
+    result_call = mock_say.call_args_list[1][0][0]
+    assert ":white_check_mark:" in result_call
+    assert "production-web-server-01" in result_call
+    assert "abc123-def456-ghi789" in result_call
+    assert "ACTIVE" in result_call
+    assert "stopping" in result_call
