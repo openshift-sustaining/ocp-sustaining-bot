@@ -430,8 +430,6 @@ def test_create_servers_floating_ip_priority(mock_openstack):
 
 
 # Tests for OpenStack VM lifecycle management
-
-
 @mock.patch("openstack.connection.Connection")
 def test_stop_server_success(mock_openstack):
     """Test successful server stop operation."""
