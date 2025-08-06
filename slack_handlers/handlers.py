@@ -780,7 +780,7 @@ def handle_rota(say, user, params_dict):
 
     # Add
     if params_dict.get("add"):
-        if not user in config.ROTA_ADMINS.values():
+        if user not in config.ROTA_ADMINS.values():
             say("Sorry. Only admins can add releases.")
             return
 

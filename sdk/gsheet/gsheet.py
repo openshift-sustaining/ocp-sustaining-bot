@@ -89,7 +89,6 @@ class GSheet:
         column_letter_mapping = {"pm": "D", "qe1": "E", "qe2": "F"}
 
         column_a1 = column_letter_mapping[column]
-        col_idx = ord(column_a1) - 65
 
         values = self._assignment_wsheet.get_values("A:G")  # only get relevant columns
 
