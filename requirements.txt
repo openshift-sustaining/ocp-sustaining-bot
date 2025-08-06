@@ -7,3 +7,4 @@ python-dotenv==1.1.0
 slack_bolt==1.23.0
 pytest==8.3.5
 dynaconf[vault]==3.2.11
+gspread==6.2.1
