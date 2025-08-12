@@ -746,21 +746,53 @@ def handle_list_team_links(say, user):
     )
 
 
+# Helper function to handle ROTA operations
 @command_meta(
     name="rota",
-    description="Check/modify ROTA.",
+    description="Manage release rotation assignments in Google Sheets",
     arguments={
-        "function": {
-            "description": "What you want the bot to do",
+        "action": {
+            "description": "Action to perform",
             "required": True,
-            "type": str,
+            "type": "str",
             "choices": ["add", "check", "replace"],
+        },
+        "release": {
+            "description": "Release version (e.g., 4.15.1)",
+            "required": False,
+            "type": "str",
+        },
+        "start_date": {
+            "description": "Start date in YYYY-MM-DD format (must be a Monday)",
+            "required": False,
+            "type": "str",
+        },
+        "end_date": {
+            "description": "End date in YYYY-MM-DD format (must be a Friday)",
+            "required": False,
+            "type": "str",
+        },
+        "pm": {
+            "description": "Project Manager username",
+            "required": False,
+            "type": "str",
+        },
+        "qe1": {
+            "description": "Primary QE engineer username",
+            "required": False,
+            "type": "str",
+        },
+        "qe2": {
+            "description": "Secondary QE engineer username",
+            "required": False,
+            "type": "str",
         },
     },
     examples=[
-        "rota add <version> [start_date] [end_date] [pm] [qe1] [qe2]",
-        "rota check this_week",
-        "rota replace <version> [pm|qe1|qe2]",
+        "rota --add --release=4.15.1 [--start_date=2024-01-08 --end_date=2024-01-12 --pm=john.doe --qe1=jane.smith --qe2=bob.wilson]",
+        "rota --check --time='This Week'",
+        "rota --check --release=4.15.1"
+        "rota --replace --release=4.15.1 --column=new_pm [--user=new_person]",
     ],
 )
 def handle_rota(say, user, params_dict):
