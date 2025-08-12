@@ -4,11 +4,10 @@ import sys
 
 # Mock config module so that no connections are made at import time leading to exceptions
 sys.modules["config"] = Mock()
-sys.modules['gspread'] = Mock()
+sys.modules["gspread"] = Mock()
 
 from config import config
-config.ALLOWED_SLACK_USERS = {'test_user':'U123456'}
-
+config.ALLOWED_SLACK_USERS = {"test_user": "U123456"}
 
 
 class TestRunner(object):
