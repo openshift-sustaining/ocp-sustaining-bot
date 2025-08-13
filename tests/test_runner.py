@@ -6,7 +6,7 @@ import sys
 sys.modules["config"] = Mock()
 sys.modules["gspread"] = Mock()
 
-from config import config
+from config import config  # noqa: E402
 config.ALLOWED_SLACK_USERS = {"test_user": "U123456"}
 
 
