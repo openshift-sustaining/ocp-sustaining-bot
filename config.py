@@ -69,6 +69,7 @@ for key in dir(config):
             # So you can access `config.key.val` instead of `config.key['val']` but it can be used like a dictionary as well.
             config.set(key, val)
     except json.decoder.JSONDecodeError:
+        logging.warn(f"{key} is not a valid JSON string .")
         pass
     except AttributeError:
         logging.warn(f"Attribute {key} not found.")  # Should usually be harmless
