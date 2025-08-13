@@ -747,6 +747,143 @@ def handle_list_team_links(say, user):
     )
 
 
+@command_meta(
+    name="openstack vm modify",
+    description="Stop, start, or delete OpenStack VMs",
+    arguments={
+        "vm-id": {
+            "description": "Server ID to modify",
+            "required": True,
+            "type": "str",
+        },
+        "stop": {"description": "Stop the server", "required": False, "type": "bool"},
+        "start": {"description": "Start the server", "required": False, "type": "bool"},
+        "delete": {
+            "description": "Delete the server",
+            "required": False,
+            "type": "bool",
+        },
+    },
+    examples=[
+        "openstack vm modify --stop --vm-id=abc123-def456-ghi789",
+        "openstack vm modify --start --vm-id=abc123-def456-ghi789",
+        "openstack vm modify --delete --vm-id=abc123-def456-ghi789",
+    ],
+)
+def handle_openstack_modify_vm(say, user, params_dict):
+    """
+    Helper function to modify OpenStack servers (stop/start/reboot/delete)
+    """
+    try:
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_openstack_modify_vm"
+            )
+
+        stop_action = params_dict.get("stop", False)
+        start_action = params_dict.get("start", False)
+        delete_action = params_dict.get("delete", False)
+        vm_id = params_dict.get("vm-id")
+
+        if not vm_id:
+            say(
+                ":warning: Missing required parameter `--vm-id`. "
+                "Usage: `openstack vm modify --<action> --vm-id=<id>`\n"
+                "Available actions: --stop, --start, --delete"
+            )
+            return
+
+        # Count the number of actions specified
+        actions = [stop_action, start_action, delete_action]
+        action_count = sum(bool(action) for action in actions)
+
+        if action_count == 0:
+            say(
+                ":warning: You must specify one action: `--stop`, `--start`, or `--delete`."
+            )
+            return
+
+        if action_count > 1:
+            say(
+                ":warning: Please specify only one action at a time: either `--stop`, `--start`, or `--delete`."
+            )
+            return
+
+        openstack_helper = OpenStackHelper()
+
+        if stop_action:
+            logger.info(f"User {user} requested to stop server {vm_id}")
+            say(f":hourglass_flowing_sand: Attempting to stop server `{vm_id}`...")
+
+            result = openstack_helper.stop_server(vm_id)
+
+            if result["success"]:
+                say(
+                    f":white_check_mark: *Successfully initiated stop for server `{vm_id}`*\n"
+                    f"• Server name: `{result['server_name']}`\n"
+                    f"• Previous status: `{result['previous_status']}`\n"
+                    f"• Current status: `{result['current_status']}`\n"
+                    f"\n:information_source: The server will take a moment to fully stop."
+                )
+            else:
+                logger.error(
+                    f"Failed to stop server `{vm_id}`, error: {result['error']}"
+                )
+                say(f":x: *Failed to stop server `{vm_id}`*\n{result['error']}")
+
+        elif start_action:
+            logger.info(f"User {user} requested to start server {vm_id}")
+            say(f":hourglass_flowing_sand: Attempting to start server `{vm_id}`...")
+
+            result = openstack_helper.start_server(vm_id)
+
+            if result["success"]:
+                say(
+                    f":white_check_mark: *Successfully initiated start for server `{vm_id}`*\n"
+                    f"• Server name: `{result['server_name']}`\n"
+                    f"• Previous status: `{result['previous_status']}`\n"
+                    f"• Current status: `{result['current_status']}`\n"
+                    f"\n:information_source: The server will take a moment to fully start."
+                )
+            else:
+                logger.error(
+                    f"Failed to start server `{vm_id}`, error: {result['error']}"
+                )
+                say(f":x: *Failed to start server `{vm_id}`*\n{result['error']}")
+
+        elif delete_action:
+            logger.info(f"User {user} requested to delete server {vm_id}")
+
+            say(
+                f":warning: *Deletion Warning*\n"
+                f"You are about to permanently delete server `{vm_id}`. This action cannot be undone.\n"
+                f":hourglass_flowing_sand: Proceeding with deletion..."
+            )
+
+            result = openstack_helper.delete_server(vm_id)
+
+            if result["success"]:
+                say(
+                    f":white_check_mark: *Successfully initiated deletion for server `{vm_id}`*\n"
+                    f"• Server name: `{result['server_name']}`\n"
+                    f"• Previous status: `{result['previous_status']}`\n"
+                    f"• Current status: `{result['current_status']}`\n"
+                    f"\n:information_source: The server is being deleted and will be permanently removed."
+                )
+            else:
+                logger.error(
+                    f"Failed to delete server `{vm_id}`, error: {result['error']}"
+                )
+                say(f":x: *Failed to delete server `{vm_id}`*\n{result['error']}")
+
+    except Exception as e:
+        logger.error(f"An error occurred while modifying OpenStack server: {e}")
+        logger.error(traceback.format_exc())
+        say(
+            ":x: An internal error occurred while modifying the OpenStack server. Please contact the administrator."
+        )
+
+
 def _helper_select_keypair(
     key_option, user, app, cloud_type, os_name, instance_type, say, cloud_sdk_obj
 ):
