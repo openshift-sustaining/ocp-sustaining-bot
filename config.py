@@ -23,6 +23,9 @@ required_keys = [
     "OS_AUTH_TYPE",
     "ALLOW_ALL_WORKSPACE_USERS",
     "ALLOWED_SLACK_USERS",
+    "ROTA_SERVICE_ACCOUNT",
+    "ROTA_ADMINS",
+    "ROTA_USERS",
 ]
 
 load_dotenv()
