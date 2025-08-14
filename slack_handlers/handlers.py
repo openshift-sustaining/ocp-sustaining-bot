@@ -979,6 +979,7 @@ def _helper_date_validation(date: str, day: int) -> str:
 
     return ""
 
+
 @command_meta(
     name="openstack vm modify",
     description="Stop, start, or delete OpenStack VMs",

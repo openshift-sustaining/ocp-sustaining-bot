@@ -20,7 +20,6 @@ from slack_handlers.handlers import (
     handle_aws_modify_vm,
     handle_rota,
     handle_openstack_modify_vm,
-
 )
 
 logger = logging.getLogger(__name__)

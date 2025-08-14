@@ -11,6 +11,7 @@ from config import config  # noqa
 config.ALLOWED_SLACK_USERS = {"test_user": "U123456"}
 # fmt: on
 
+
 class TestRunner(object):
     def test_handlers(self, pytester: Pytester) -> None:
         """Test the slack handlers."""
