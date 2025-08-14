@@ -6,9 +6,10 @@ import sys
 sys.modules["config"] = Mock()
 sys.modules["gspread"] = Mock()
 
-from config import config  # noqa: E402
+# fmt: off
+from config import config  # noqa
 config.ALLOWED_SLACK_USERS = {"test_user": "U123456"}
-
+# fmt: on
 
 class TestRunner(object):
     def test_handlers(self, pytester: Pytester) -> None:
