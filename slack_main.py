@@ -18,6 +18,7 @@ from slack_handlers.handlers import (
     handle_list_aws_vms,
     handle_list_team_links,
     handle_aws_modify_vm,
+    handle_rota,
     handle_openstack_modify_vm,
 )
 
@@ -85,6 +86,7 @@ def mention_handler(body, say):
         "aws vm list": lambda: handle_list_aws_vms(say, region, user, named_params),
         "project links list": lambda: handle_list_team_links(say, user),
         "help": lambda: handle_help_command(say, user),
+        "rota": lambda: handle_rota(say, user, named_params),
     }
 
     command_function = commands.get(base_command)
