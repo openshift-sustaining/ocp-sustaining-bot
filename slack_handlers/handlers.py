@@ -10,7 +10,7 @@ from sdk.tools.help_system import (
     get_aws_instance_states,
     get_aws_instance_types,
 )
-from sdk.gsheet.gsheet import gsheet
+from sdk.gsheet import gsheet
 import logging
 import traceback
 import functools
