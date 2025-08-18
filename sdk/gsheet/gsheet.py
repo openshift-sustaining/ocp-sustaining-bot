@@ -109,6 +109,7 @@ class GSheet:
         else:
             self._assignment_wsheet.update_acell(cell_a1, user)
 
+
 try:
     gsheet = GSheet()
 except Exception as ex:
