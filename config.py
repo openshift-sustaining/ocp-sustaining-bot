@@ -49,8 +49,8 @@ cert_text_final = cert_txt.replace("\\n", "\n")
 with open(ca_bundle_file.name, "w") as f:
     f.write(cert_text_final)
 
-print("CA bundle file:", ca_bundle_file.name)
-os.system(f"cat  {ca_bundle_file.name}")
+# print("CA bundle file:", ca_bundle_file.name)
+# os.system(f"cat  {ca_bundle_file.name}")
 
 
 try:
