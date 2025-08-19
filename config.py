@@ -40,6 +40,13 @@ req_env_vars = {
     "VAULT_KV_VERSION_FOR_DYNACONF",
 }
 
+# DON'T MOVE: `basicConfig` gets called only once. Dynaconf sets it to `WARNING` so our setting should be above that
+log_level = os.getenv("LOG_LEVEL", "INFO")
+log_level = log_level.upper()
+log_level_int = getattr(logging, log_level, 20)
+log_format = "[%(asctime)s %(levelname)s %(name)s] %(message)s"
+logging.basicConfig(level=log_level_int, format=log_format)
+
 vault_enabled = req_env_vars <= set(os.environ.keys())  # subset of os.environ
 
 # Load CA Cert to avoid SSL errors
