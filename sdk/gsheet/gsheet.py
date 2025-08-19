@@ -110,4 +110,7 @@ class GSheet:
             self._assignment_wsheet.update_acell(cell_a1, user)
 
 
-gsheet = GSheet()
+try:
+    gsheet = GSheet()
+except Exception as ex:
+    logging.info(f"Error in call to Gsheet : {repr(ex)}")
