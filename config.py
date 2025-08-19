@@ -44,8 +44,14 @@ vault_enabled = req_env_vars <= set(os.environ.keys())  # subset of os.environ
 
 # Load CA Cert to avoid SSL errors
 ca_bundle_file = tempfile.NamedTemporaryFile()
+cert_txt = os.getenv("RH_CA_BUNDLE_TEXT", "")
+cert_text_final = cert_txt.replace("\\n", "\n")
 with open(ca_bundle_file.name, "w") as f:
-    f.write(os.getenv("RH_CA_BUNDLE_TEXT", ""))
+    f.write(cert_text_final)
+
+# print("CA bundle file:", ca_bundle_file.name)
+# os.system(f"cat  {ca_bundle_file.name}")
+
 
 try:
     config = Dynaconf(
