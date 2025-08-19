@@ -881,7 +881,7 @@ def handle_rota(say, user, params_dict):
             return
 
         if not data:
-            say("Sorry, some error occurred.")
+            say("Sorry, could not find the requested data.")
             return
 
         logger.debug(f"Received data from sheet: {data}")
