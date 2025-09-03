@@ -126,3 +126,9 @@ jobs:
         push: true
         tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
 
+    - name: Clean up
+      run: |
+        echo ":wastebasket: Removing temporary file etc"
+        rm -f /home/runner/.docker/config.json
+        docker logout quay.io || true
+
