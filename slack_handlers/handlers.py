@@ -766,12 +766,12 @@ def handle_list_team_links(say, user):
             "required": False,
             "type": "str",
         },
-        "start_date": {
+        "start": {
             "description": "Start date in YYYY-MM-DD format (must be a Monday)",
             "required": False,
             "type": "str",
         },
-        "end_date": {
+        "end": {
             "description": "End date in YYYY-MM-DD format (must be a Friday)",
             "required": False,
             "type": "str",
@@ -793,7 +793,7 @@ def handle_list_team_links(say, user):
         },
     },
     examples=[
-        "rota --add --release=4.15.1 [--start_date=2024-01-08 --end_date=2024-01-12 --pm=john.doe --qe1=jane.smith --qe2=bob.wilson]",
+        "rota --add --release=4.15.1 [--start=2024-01-08 --end=2024-01-12 --pm=john.doe --qe1=jane.smith --qe2=bob.wilson]",
         "rota --check --time='This Week'",
         "rota --check --release=4.15.1"
         "rota --replace --release=4.15.1 --column=new_pm [--user=new_person]",
@@ -833,6 +833,8 @@ def handle_rota(say, user, params_dict):
                 _helper_date_validation(start, 0)
                 + "\n"
                 + _helper_date_validation(end, 4)
+                + "\n"
+                + _helper_date_cmp(start, end)
             )
             error = error.strip()
             if error:
@@ -978,6 +980,20 @@ def _helper_date_validation(date: str, day: int) -> str:
             return "Day of the week is incorrect"
 
     return ""
+
+
+def _helper_date_cmp(start: str, end: str) -> str:
+    # Validate that start date is before end date
+    try:
+        s_date = datetime.strptime(start, "%Y-%m-%d")
+        e_date = datetime.strptime(end, "%Y-%m-%d")
+
+        if s_date >= e_date:
+            return "End date should be after start date."
+        else:
+            return ""
+    except ValueError:
+        return ""
 
 
 @command_meta(
