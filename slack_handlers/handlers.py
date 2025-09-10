@@ -893,6 +893,10 @@ def handle_rota(say, user, params_dict):
         else:
             formatted_str = _helper_format_rota_output(data)
 
+        formatted_str = (
+            formatted_str.strip() or "Sorry, could not find the requested data."
+        )
+
         say(formatted_str)
         return
 
@@ -928,6 +932,9 @@ def _helper_format_rota_output(data: list) -> str:
         return "Some error occurred parsing the data."
 
     rel_ver, s_date, e_date, pm, qe1, qe2, activity = data
+
+    if rel_ver == "N/A":
+        return ""
 
     pm = _get_userid_from_name(pm)
     qe1 = _get_userid_from_name(qe1)
