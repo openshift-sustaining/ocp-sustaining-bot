@@ -34,15 +34,12 @@ variable "public_subnet_cidr_2" {
   default     = "10.0.2.0/24"
 }
 
-variable "public_subnet_az_1" {
-  description = "Availability Zone for the first public subnet"
-  type        = string
-  default     = "ap-south-1a"
+variable "common_tags" {
+  description = "Common tags for all resources"
+  type        = map(string)
+  default = {
+    "app-code"      = "OSUS-002"
+    "service-phase" = "dev"
+    "cost-center"   = "136"
+  }
 }
-
-variable "public_subnet_az_2" {
-  description = "Availability Zone for the second public subnet"
-  type        = string
-  default     = "ap-south-1b"
-}
-
