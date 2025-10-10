@@ -113,5 +113,5 @@ class GSheet:
 try:
     gsheet = GSheet()
 except Exception as ex:
-    gsheet =  None
+    gsheet = None
     logging.info(f"Error in call to Gsheet : {repr(ex)}")
