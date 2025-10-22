@@ -1,10 +1,11 @@
 """
 Smartsheet Integration
 ======================
-Client for reading ROTA data from Smartsheet.
+reading ROTA data from Smartsheet.
+
+
+TO DO
 """
 
-from slack_worker.smartsheet_client.smartsheet_reader import SmartsheetReader
 
-__all__ = ['SmartsheetReader']
 

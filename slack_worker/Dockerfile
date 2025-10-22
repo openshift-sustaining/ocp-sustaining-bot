@@ -1,7 +1,3 @@
-# Slack Worker Dockerfile
-# ======================
-# This builds a separate container for the scheduled worker service
-
 FROM python:3.11-slim
 
 # Set working directory
@@ -34,9 +30,6 @@ RUN mkdir -p /app/locks && chmod 777 /app/locks
 # Set Python path to include parent directory
 ENV PYTHONPATH=/app:${PYTHONPATH}
 
-# Health check (optional - checks if process is running)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD pgrep -f slack_worker_main.py || exit 1
 
 # Run the worker
 CMD ["python", "-u", "/app/slack_worker/slack_worker_main.py"]

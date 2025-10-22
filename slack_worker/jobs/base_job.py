@@ -1,9 +1,3 @@
-"""
-Base Job Class
-==============
-Abstract base class for all scheduled jobs in the Slack Worker.
-"""
-
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional

@@ -263,36 +263,4 @@ class RotaReminderJob(BaseJob):
             return f"<@{slack_id}>"
         return name
     
-    def _update_history_sheet(self, period: str):
-        """
-        Update the intermediary Google Sheet with current ROTA data.
-        
-        This sheet serves as a reference and history log.
-        
-        Args:
-            period: "This Week" or "Next Week"
-        """
-        try:
-            data = gsheet.fetch_data_by_time(period)
-            
-            if not data:
-                self.logger.info(f"No data to update for {period}")
-                return
-            
-            # TODO: Implement history sheet update
-            # This would write to a separate sheet for tracking/reference
-            # For now, this is a placeholder
-            
-            self.logger.info(f"History sheet update: {len(data)} releases for {period}")
-            
-            # Example implementation:
-            # history_worksheet = gsheet._rota_sheet.worksheet(self.history_sheet_name)
-            # timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            # for row in data:
-            #     history_row = [timestamp, period] + row
-            #     history_worksheet.append_row(history_row)
-            
-        except Exception as e:
-            self.logger.error(f"Error updating history sheet: {e}")
-            # Don't fail the job if history update fails
-
+   

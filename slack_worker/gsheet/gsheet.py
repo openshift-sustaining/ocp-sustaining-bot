@@ -2,13 +2,36 @@ from config import config
 import gspread
 import re
 import logging
+import os
+import json
 from datetime import date
 
 logger = logging.getLogger(__name__)
 
 
 class GSheet:
-    def __init__(self, token: dict = config.ROTA_SERVICE_ACCOUNT):
+    def __init__(self, token: dict = None):
+        # Try to load token from different sources
+        if token is None:
+            # Option 1: From config (dict or JSON string)
+            token = getattr(config, 'ROTA_SERVICE_ACCOUNT', None)
+            
+            # Option 2: From file path
+            if isinstance(token, str):
+                # Check if it's a file path
+                if os.path.exists(token):
+                    with open(token, 'r') as f:
+                        token = json.load(f)
+                # Try parsing as JSON string
+                else:
+                    try:
+                        token = json.loads(token)
+                    except json.JSONDecodeError:
+                        logger.error(f"ROTA_SERVICE_ACCOUNT is not valid JSON")
+                        raise ValueError("Invalid ROTA_SERVICE_ACCOUNT format")
+        
+        if not token or not isinstance(token, dict):
+            raise ValueError("ROTA_SERVICE_ACCOUNT must be a dict or valid JSON")
         rota_sheet = getattr(config, "ROTA_SHEET", "ROTA")
         assignment_wsheet = getattr(config, "ASSIGNMENT_WSHEET", "Assignments")
 
