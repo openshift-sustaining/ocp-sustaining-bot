@@ -233,9 +233,9 @@ class RotaReminderJob(BaseJob):
                 message = (
                     f"👋 Hi <@{slack_id}>! Reminder: You're assigned to *{rel_ver}* "
                     f"({period}).\n\n"
-                    f"📅 *Dates:* {s_date or 'TBD'} → {e_date or 'TBD'}\n\n"
+                    f"*Dates:* start : {s_date or 'TBD'} → end: {e_date or 'TBD'}\n\n"
                     f"If you have any questions or need to make changes, "
-                    f"please contact the team leads."
+                    f"please contact the patch manager."
                 )
                 
                 try:
