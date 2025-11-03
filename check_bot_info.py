@@ -68,7 +68,7 @@ try:
             print("   💡 Use /invite @bot-name in a channel to add it")
     
     except Exception as e:
-        print(f"   ⚠️  Could not list channels: {e}")
+        print(f"   ⚠️  Could not list channels : {e}")
     
     print("\n" + "="*60)
     print("✅ Check complete!")
