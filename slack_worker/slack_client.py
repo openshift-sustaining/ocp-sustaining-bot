@@ -7,7 +7,7 @@ import logging
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from .config import config
+from .config import worker_config
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class SlackClient:
         Args:
             token: Slack bot token (defaults to config)
         """
-        self.token = token or config.SLACK_BOT_TOKEN
+        self.token = token or worker_config.SLACK_BOT_TOKEN
         self.client = WebClient(token=self.token)
 
     def send_message(self, channel: str, text: str = None, blocks: list = None) -> bool:

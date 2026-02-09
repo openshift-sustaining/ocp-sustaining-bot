@@ -15,7 +15,7 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from .config import config
+from .config import worker_config
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,8 @@ class FileLock:
             timeout: Lock timeout in seconds
         """
         self.lock_name = lock_name
-        self.timeout = timeout or config.LOCK_TIMEOUT
-        self.lock_dir = Path(config.LOCK_DIR)
+        self.timeout = timeout or worker_config.LOCK_TIMEOUT
+        self.lock_dir = Path(worker_config.LOCK_DIR)
         self.lock_file_path = self.lock_dir / f"{lock_name}.lock"
         self.lock_file = None
 
@@ -133,7 +133,7 @@ class JobScheduler:
         Args:
             timezone: Timezone for scheduling (default from config)
         """
-        self.timezone = timezone or config.TIMEZONE
+        self.timezone = timezone or worker_config.TIMEZONE
         self.scheduler = BlockingScheduler(timezone=self.timezone)
 
         # Add event listeners

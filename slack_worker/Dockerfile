@@ -18,8 +18,7 @@ RUN pip install --no-cache-dir -r /app/slack_worker/requirements.txt
 # Remove build dependencies
 RUN apk del .build-deps
 
-# Copy necessary files from parent directory
-COPY config.py /app/config.py
+# Copy SDK from parent directory (shared Google Sheets client)
 COPY sdk /app/sdk/
 
 # Copy slack_worker service

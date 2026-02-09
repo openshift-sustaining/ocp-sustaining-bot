@@ -11,9 +11,8 @@ from typing import Dict, List
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from config import config as parent_config
 from sdk.gsheet.gsheet import GSheet
-from slack_worker.config import config
+from slack_worker.config import worker_config
 from slack_worker.slack_client import slack_client
 
 logger = logging.getLogger(__name__)
@@ -34,9 +33,9 @@ def log_fetched_data(releases: List[Dict], week_label: str = "This Week"):
     logger.info(f"\n{'='*80}")
     logger.info(f"📊 FETCHED DATA FROM GOOGLE SHEETS - {week_label.upper()}")
     logger.info(f"{'='*80}")
-    logger.info(f"📋 Sheet ID: {parent_config.SPREADSHEET_ID}")
+    logger.info(f"📋 Sheet: {worker_config.ROTA_SHEET}")
     logger.info(
-        f"🔐 Service Account: {parent_config.ROTA_SERVICE_ACCOUNT.get('client_email', 'N/A')}"
+        f"🔐 Service Account: {worker_config.ROTA_SERVICE_ACCOUNT.get('client_email', 'N/A') if isinstance(worker_config.ROTA_SERVICE_ACCOUNT, dict) else 'N/A'}"
     )
     logger.info(f"\n📋 RELEASES ({len(releases)} total):\n")
 
@@ -46,13 +45,13 @@ def log_fetched_data(releases: List[Dict], week_label: str = "This Week"):
         logger.info(f"    Start Date: {release.get('start_date', 'N/A')}")
         logger.info(f"    End Date:   {release.get('end_date', 'N/A')}")
         logger.info(
-            f"    PM:         {release.get('pm', 'N/A')} → {config.ROTA_USERS.get(release.get('pm', ''), 'Not mapped')}"
+            f"    PM:         {release.get('pm', 'N/A')} → {worker_config.ROTA_USERS.get(release.get('pm', ''), 'Not mapped')}"
         )
         logger.info(
-            f"    QE1:        {release.get('qe1', 'N/A')} → {config.ROTA_USERS.get(release.get('qe1', ''), 'Not mapped')}"
+            f"    QE1:        {release.get('qe1', 'N/A')} → {worker_config.ROTA_USERS.get(release.get('qe1', ''), 'Not mapped')}"
         )
         logger.info(
-            f"    QE2:        {release.get('qe2', 'N/A')} → {config.ROTA_USERS.get(release.get('qe2', ''), 'Not mapped')}"
+            f"    QE2:        {release.get('qe2', 'N/A')} → {worker_config.ROTA_USERS.get(release.get('qe2', ''), 'Not mapped')}"
         )
         logger.info(f"")
 
@@ -99,7 +98,7 @@ def get_current_week_releases() -> List[Dict]:
         List of release data dictionaries
     """
     try:
-        gsheet = GSheet(token=config.ROTA_SERVICE_ACCOUNT)
+        gsheet = GSheet(token=worker_config.ROTA_SERVICE_ACCOUNT)
         data = gsheet.fetch_data_by_time("This Week")
 
         if not data:
@@ -139,7 +138,7 @@ def get_next_week_releases() -> List[Dict]:
         List of release data dictionaries
     """
     try:
-        gsheet = GSheet(token=config.ROTA_SERVICE_ACCOUNT)
+        gsheet = GSheet(token=worker_config.ROTA_SERVICE_ACCOUNT)
         data = gsheet.fetch_data_by_time("Next Week")
 
         if not data:
@@ -229,7 +228,7 @@ def get_user_mention(username: str) -> str:
         return username
 
     # Check if username is in ROTA_USERS mapping
-    user_id = config.ROTA_USERS.get(username)
+    user_id = worker_config.ROTA_USERS.get(username)
     if user_id:
         return f"<@{user_id}>"
 
@@ -291,9 +290,9 @@ def send_group_reminder():
             return
 
         # Send to group channel
-        if config.ROTA_GROUP_CHANNEL:
+        if worker_config.ROTA_GROUP_CHANNEL:
             success = slack_client.send_message(
-                channel=config.ROTA_GROUP_CHANNEL, text=message
+                channel=worker_config.ROTA_GROUP_CHANNEL, text=message
             )
 
             if success:
@@ -347,7 +346,7 @@ def send_dm_reminders():
             # Add PM
             pm = release.get("pm")
             if pm and pm != "TBD":
-                user_id = config.ROTA_USERS.get(pm)
+                user_id = worker_config.ROTA_USERS.get(pm)
                 if user_id:
                     if user_id not in people_to_notify:
                         people_to_notify[user_id] = {"name": pm, "assignments": []}
@@ -362,7 +361,7 @@ def send_dm_reminders():
             # Add QE1
             qe1 = release.get("qe1")
             if qe1 and qe1 != "TBD":
-                user_id = config.ROTA_USERS.get(qe1)
+                user_id = worker_config.ROTA_USERS.get(qe1)
                 if user_id:
                     if user_id not in people_to_notify:
                         people_to_notify[user_id] = {"name": qe1, "assignments": []}
@@ -377,7 +376,7 @@ def send_dm_reminders():
             # Add QE2
             qe2 = release.get("qe2")
             if qe2 and qe2 != "TBD":
-                user_id = config.ROTA_USERS.get(qe2)
+                user_id = worker_config.ROTA_USERS.get(qe2)
                 if user_id:
                     if user_id not in people_to_notify:
                         people_to_notify[user_id] = {"name": qe2, "assignments": []}
@@ -452,7 +451,7 @@ def send_dm_reminders_force():
             # Add PM
             pm = release.get("pm")
             if pm and pm != "TBD":
-                user_id = config.ROTA_USERS.get(pm)
+                user_id = worker_config.ROTA_USERS.get(pm)
                 if user_id:
                     if user_id not in people_to_notify:
                         people_to_notify[user_id] = {"name": pm, "assignments": []}
@@ -467,7 +466,7 @@ def send_dm_reminders_force():
             # Add QE1
             qe1 = release.get("qe1")
             if qe1 and qe1 != "TBD":
-                user_id = config.ROTA_USERS.get(qe1)
+                user_id = worker_config.ROTA_USERS.get(qe1)
                 if user_id:
                     if user_id not in people_to_notify:
                         people_to_notify[user_id] = {"name": qe1, "assignments": []}
@@ -482,7 +481,7 @@ def send_dm_reminders_force():
             # Add QE2
             qe2 = release.get("qe2")
             if qe2 and qe2 != "TBD":
-                user_id = config.ROTA_USERS.get(qe2)
+                user_id = worker_config.ROTA_USERS.get(qe2)
                 if user_id:
                     if user_id not in people_to_notify:
                         people_to_notify[user_id] = {"name": qe2, "assignments": []}

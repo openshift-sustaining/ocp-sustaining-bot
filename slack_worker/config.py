@@ -1,120 +1,176 @@
 """
 Configuration for Slack Worker Service
-Loads configuration from environment variables and parent config
+Standalone configuration using Dynaconf - independent from main bot config
 """
 
+import json
 import logging
 import os
+import tempfile
 
-# Load parent config
-import sys
-from datetime import datetime
-
+import httpx
+import hvac
 from dotenv import load_dotenv
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from config import config as parent_config
+from dynaconf import Dynaconf
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables
+# Required keys for slack_worker to function
+required_keys = [
+    "SLACK_BOT_TOKEN",
+    "ROTA_SERVICE_ACCOUNT",
+    "ROTA_USERS",
+]
+
 load_dotenv()
+
+# Check if Vault is configured
+req_env_vars = {
+    "RH_CA_BUNDLE_TEXT",
+    "VAULT_ENABLED_FOR_DYNACONF",
+    "VAULT_URL_FOR_DYNACONF",
+    "VAULT_SECRET_ID_FOR_DYNACONF",
+    "VAULT_ROLE_ID_FOR_DYNACONF",
+    "VAULT_MOUNT_POINT_FOR_DYNACONF",
+    "VAULT_PATH_FOR_DYNACONF",
+    "VAULT_KV_VERSION_FOR_DYNACONF",
+}
+
+vault_enabled = req_env_vars <= set(os.environ.keys())  # subset of os.environ
+
+# Load CA Cert to avoid SSL errors (for Vault)
+ca_bundle_file = tempfile.NamedTemporaryFile(delete=False)
+with open(ca_bundle_file.name, "w") as f:
+    f.write(os.getenv("RH_CA_BUNDLE_TEXT", ""))
+
+try:
+    config = Dynaconf(
+        load_dotenv=True,
+        environment=False,
+        vault_enabled=vault_enabled,
+        vault={
+            "url": os.getenv("VAULT_URL_FOR_DYNACONF", ""),
+            "verify": ca_bundle_file.name,
+        },
+        envvar_prefix=False,
+    )
+except (httpx.ConnectError, ConnectionError):
+    logger.warning("Vault connection failed")
+    config = Dynaconf(load_dotenv=True, environment=False, envvar_prefix=False)
+except hvac.exceptions.InvalidRequest:
+    logger.warning("Authentication error with Vault")
+    config = Dynaconf(load_dotenv=True, environment=False, envvar_prefix=False)
+
+# Parse JSON strings into objects (same logic as main config)
+for key in dir(config):
+    try:
+        value = getattr(config, key)
+        if isinstance(value, str):
+            val = json.loads(value)
+            config.set(key, val)
+    except json.decoder.JSONDecodeError:
+        pass
+    except AttributeError:
+        pass
+
+# Verify required keys are loaded
+for k in required_keys:
+    if not hasattr(config, k):
+        logger.error(f"Could not read key: {k}")
+        raise AttributeError(f"Could not read key: {k}")
 
 
 class WorkerConfig:
-    """Configuration class for slack worker"""
+    """Configuration class for slack worker with defaults and validation"""
 
-    # Inherit from parent config
-    SLACK_BOT_TOKEN = parent_config.SLACK_BOT_TOKEN
-    SLACK_APP_TOKEN = parent_config.SLACK_APP_TOKEN
-    ROTA_SERVICE_ACCOUNT = parent_config.ROTA_SERVICE_ACCOUNT
-    ROTA_USERS = parent_config.ROTA_USERS
-    ROTA_ADMINS = parent_config.ROTA_ADMINS
-
-    # Worker-specific configuration
-    # Smartsheet configuration
-    SMARTSHEET_SOURCE_URL = os.getenv(
-        "SMARTSHEET_SOURCE_URL",
-        "https://app.smartsheet.com/b/publish?EQBCT=970c5ff6c67a4ca7a153e3a6ef993e77",
-    )
-    SMARTSHEET_ACCESS_TOKEN = os.getenv("SMARTSHEET_ACCESS_TOKEN", "")
-    # Accept either SMARTSHEET_SHEET_ID or SMARTSHEET_REPORT_ID
-    SMARTSHEET_SHEET_ID = os.getenv("SMARTSHEET_SHEET_ID", "") or os.getenv(
-        "SMARTSHEET_REPORT_ID", ""
-    )
+    # Core Slack configuration (from Dynaconf/env)
+    SLACK_BOT_TOKEN = getattr(config, "SLACK_BOT_TOKEN", "")
+    SLACK_APP_TOKEN = getattr(config, "SLACK_APP_TOKEN", "")
 
     # Google Sheets configuration
-    ROTA_SHEET = getattr(parent_config, "ROTA_SHEET", "ROTA")
-    ROTA_SYNC_WORKSHEET = os.getenv("ROTA_SYNC_WORKSHEET", "Smartsheet_Sync")
-    ASSIGNMENT_WORKSHEET = getattr(parent_config, "ASSIGNMENT_WSHEET", "Assignments")
+    ROTA_SERVICE_ACCOUNT = getattr(config, "ROTA_SERVICE_ACCOUNT", {})
+    ROTA_SHEET = getattr(config, "ROTA_SHEET", "ROTA")
+    ROTA_SYNC_WORKSHEET = getattr(config, "ROTA_SYNC_WORKSHEET", "Smartsheet_Sync")
+    ASSIGNMENT_WORKSHEET = getattr(config, "ASSIGNMENT_WSHEET", "Assignments")
+
+    # User mappings (from Dynaconf/env as JSON)
+    ROTA_USERS = getattr(config, "ROTA_USERS", {})
+    ROTA_ADMINS = getattr(config, "ROTA_ADMINS", [])
+
+    # Smartsheet configuration
+    SMARTSHEET_ACCESS_TOKEN = getattr(config, "SMARTSHEET_ACCESS_TOKEN", "")
+    SMARTSHEET_SHEET_ID = getattr(
+        config, "SMARTSHEET_SHEET_ID", ""
+    ) or getattr(config, "SMARTSHEET_REPORT_ID", "")
 
     # Slack channel/user configuration
-    ROTA_GROUP_CHANNEL = os.getenv(
-        "ROTA_GROUP_CHANNEL", ""
-    )  # Channel ID for group notifications
+    ROTA_GROUP_CHANNEL = getattr(config, "ROTA_GROUP_CHANNEL", "")
 
-    # Team members configuration (from env vars)
-    ROTA_LEADS = (
-        os.getenv("ROTA_LEADS", "").split(",") if os.getenv("ROTA_LEADS") else []
-    )
-    ROTA_MEMBERS = (
-        os.getenv("ROTA_MEMBERS", "").split(",") if os.getenv("ROTA_MEMBERS") else []
-    )
+    # Team members configuration
+    _rota_leads = getattr(config, "ROTA_LEADS", "")
+    ROTA_LEADS = _rota_leads.split(",") if isinstance(_rota_leads, str) and _rota_leads else _rota_leads if isinstance(_rota_leads, list) else []
 
-    # Job scheduling configuration (cron expressions)
+    _rota_members = getattr(config, "ROTA_MEMBERS", "")
+    ROTA_MEMBERS = _rota_members.split(",") if isinstance(_rota_members, str) and _rota_members else _rota_members if isinstance(_rota_members, list) else []
+
+    # ROTA Job scheduling configuration (cron expressions)
+    # Set to empty string "" to disable a job
     # Default schedules:
-    # - Group reminders: Monday and Thursday at 9 AM
-    # - DM reminders: Friday at 5 PM (previous week) and Monday at 9 AM (current week)
-    # - Sheet sync: Every day at 8 AM
-    SCHEDULE_GROUP_REMINDER = os.getenv("SCHEDULE_GROUP_REMINDER", "0 9 * * MON,THU")
-    SCHEDULE_DM_REMINDER_FRIDAY = os.getenv(
-        "SCHEDULE_DM_REMINDER_FRIDAY", "0 17 * * FRI"
-    )
-    SCHEDULE_DM_REMINDER_MONDAY = os.getenv(
-        "SCHEDULE_DM_REMINDER_MONDAY", "0 9 * * MON"
-    )
-    SCHEDULE_SHEET_SYNC = os.getenv("SCHEDULE_SHEET_SYNC", "0 8 * * *")
+    # - ROTA Group reminders: Monday and Thursday at 9 AM
+    # - ROTA DM reminders: Friday at 5 PM (previous week) and Monday at 9 AM (current week)
+    # - ROTA Sheet sync: Disabled by default (requires Smartsheet credentials)
+    SCHEDULE_ROTA_GROUP_REMINDER = getattr(config, "SCHEDULE_ROTA_GROUP_REMINDER", "0 9 * * MON,THU")
+    SCHEDULE_ROTA_DM_FRIDAY = getattr(config, "SCHEDULE_ROTA_DM_FRIDAY", "0 17 * * FRI")
+    SCHEDULE_ROTA_DM_MONDAY = getattr(config, "SCHEDULE_ROTA_DM_MONDAY", "0 9 * * MON")
+    SCHEDULE_ROTA_SHEET_SYNC = getattr(config, "SCHEDULE_ROTA_SHEET_SYNC", "")  # "" Disabled by default
 
     # File locking configuration for horizontal scaling
-    LOCK_DIR = os.getenv("LOCK_DIR", "/tmp/slack_worker_locks")
-    LOCK_TIMEOUT = int(os.getenv("LOCK_TIMEOUT", "300"))  # 5 minutes
-
-    # Enable/disable specific jobs
-    ENABLE_GROUP_REMINDER = os.getenv("ENABLE_GROUP_REMINDER", "true").lower() == "true"
-    ENABLE_DM_REMINDER = os.getenv("ENABLE_DM_REMINDER", "true").lower() == "true"
-    ENABLE_SHEET_SYNC = os.getenv("ENABLE_SHEET_SYNC", "true").lower() == "true"
+    LOCK_DIR = getattr(config, "LOCK_DIR", "/tmp/slack_worker_locks")
+    LOCK_TIMEOUT = int(getattr(config, "LOCK_TIMEOUT", "300"))
 
     # Timezone
-    TIMEZONE = os.getenv("TIMEZONE", "UTC")
+    TIMEZONE = getattr(config, "TIMEZONE", "UTC")
 
     # Logging
-    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    LOG_LEVEL = getattr(config, "LOG_LEVEL", "INFO")
+
+    # Helper properties to check if ROTA jobs are enabled (non-empty schedule = enabled)
+    @property
+    def is_rota_group_reminder_enabled(self):
+        return bool(self.SCHEDULE_ROTA_GROUP_REMINDER)
+
+    @property
+    def is_rota_dm_reminder_enabled(self):
+        return bool(self.SCHEDULE_ROTA_DM_FRIDAY or self.SCHEDULE_ROTA_DM_MONDAY)
+
+    @property
+    def is_rota_sheet_sync_enabled(self):
+        return bool(self.SCHEDULE_ROTA_SHEET_SYNC)
 
 
-config = WorkerConfig()
+worker_config = WorkerConfig()
 
 
-# Validate required configuration
 def validate_config():
     """Validate that required configuration is present"""
     errors = []
 
-    if not config.SLACK_BOT_TOKEN:
+    if not worker_config.SLACK_BOT_TOKEN:
         errors.append("SLACK_BOT_TOKEN is required")
 
-    if not config.ROTA_SERVICE_ACCOUNT:
+    if not worker_config.ROTA_SERVICE_ACCOUNT:
         errors.append("ROTA_SERVICE_ACCOUNT is required")
 
-    if config.ENABLE_GROUP_REMINDER and not config.ROTA_GROUP_CHANNEL:
-        errors.append("ROTA_GROUP_CHANNEL is required when group reminders are enabled")
+    # Validate ROTA group reminder dependencies
+    if worker_config.is_rota_group_reminder_enabled and not worker_config.ROTA_GROUP_CHANNEL:
+        errors.append("ROTA_GROUP_CHANNEL is required when SCHEDULE_ROTA_GROUP_REMINDER is set")
 
-    if config.ENABLE_SHEET_SYNC:
-        if not config.SMARTSHEET_ACCESS_TOKEN:
-            errors.append(
-                "SMARTSHEET_ACCESS_TOKEN is required when sheet sync is enabled"
-            )
-        if not config.SMARTSHEET_SHEET_ID:
-            errors.append("SMARTSHEET_SHEET_ID is required when sheet sync is enabled")
+    # Validate ROTA sheet sync dependencies
+    if worker_config.is_rota_sheet_sync_enabled:
+        if not worker_config.SMARTSHEET_ACCESS_TOKEN:
+            errors.append("SMARTSHEET_ACCESS_TOKEN is required when SCHEDULE_ROTA_SHEET_SYNC is set")
+        if not worker_config.SMARTSHEET_SHEET_ID:
+            errors.append("SMARTSHEET_SHEET_ID is required when SCHEDULE_ROTA_SHEET_SYNC is set")
 
     if errors:
         for error in errors:

@@ -11,7 +11,7 @@ from pathlib import Path
 # Add parent directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from slack_worker.config import config, validate_config
+from slack_worker.config import worker_config, validate_config
 from slack_worker.jobs import (
     send_dm_reminders,
     send_group_reminder,
@@ -21,7 +21,7 @@ from slack_worker.scheduler import JobScheduler
 
 # Configure logging
 logging.basicConfig(
-    level=getattr(logging, config.LOG_LEVEL.upper(), logging.INFO),
+    level=getattr(logging, worker_config.LOG_LEVEL.upper(), logging.INFO),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
@@ -32,61 +32,59 @@ logger = logging.getLogger(__name__)
 def setup_jobs(scheduler: JobScheduler):
     """
     Set up all scheduled jobs
+    Jobs are enabled by setting their schedule (empty schedule = disabled)
 
     Args:
         scheduler: JobScheduler instance
     """
     logger.info("Setting up scheduled jobs...")
 
-    # 1. Group reminder job (Monday and Thursday at 9 AM)
-    if config.ENABLE_GROUP_REMINDER:
+    # 1. ROTA Group reminder job
+    if worker_config.SCHEDULE_ROTA_GROUP_REMINDER:
         scheduler.add_cron_job(
             func=send_group_reminder,
             job_id="rota_group_reminder",
-            cron_expression=config.SCHEDULE_GROUP_REMINDER,
+            cron_expression=worker_config.SCHEDULE_ROTA_GROUP_REMINDER,
             use_lock=True,
         )
-        logger.info(f"Enabled: ROTA group reminder ({config.SCHEDULE_GROUP_REMINDER})")
+        logger.info(f"Enabled: ROTA group reminder ({worker_config.SCHEDULE_ROTA_GROUP_REMINDER})")
     else:
-        logger.info("Disabled: ROTA group reminder")
+        logger.info("Disabled: ROTA group reminder (SCHEDULE_ROTA_GROUP_REMINDER not set)")
 
-    # 2. DM reminder jobs (Friday at 5 PM and Monday at 9 AM)
-    if config.ENABLE_DM_REMINDER:
-        # Friday reminder
+    # 2. ROTA DM reminder jobs (each schedule is independent)
+    if worker_config.SCHEDULE_ROTA_DM_FRIDAY:
         scheduler.add_cron_job(
             func=send_dm_reminders,
-            job_id="rota_dm_reminder_friday",
-            cron_expression=config.SCHEDULE_DM_REMINDER_FRIDAY,
+            job_id="rota_dm_friday",
+            cron_expression=worker_config.SCHEDULE_ROTA_DM_FRIDAY,
             use_lock=True,
         )
-        logger.info(
-            f"Enabled: ROTA DM reminder - Friday ({config.SCHEDULE_DM_REMINDER_FRIDAY})"
-        )
+        logger.info(f"Enabled: ROTA DM reminder - Friday ({worker_config.SCHEDULE_ROTA_DM_FRIDAY})")
+    else:
+        logger.info("Disabled: ROTA DM reminder - Friday (SCHEDULE_ROTA_DM_FRIDAY not set)")
 
-        # Monday reminder
+    if worker_config.SCHEDULE_ROTA_DM_MONDAY:
         scheduler.add_cron_job(
             func=send_dm_reminders,
-            job_id="rota_dm_reminder_monday",
-            cron_expression=config.SCHEDULE_DM_REMINDER_MONDAY,
+            job_id="rota_dm_monday",
+            cron_expression=worker_config.SCHEDULE_ROTA_DM_MONDAY,
             use_lock=True,
         )
-        logger.info(
-            f"Enabled: ROTA DM reminder - Monday ({config.SCHEDULE_DM_REMINDER_MONDAY})"
-        )
+        logger.info(f"Enabled: ROTA DM reminder - Monday ({worker_config.SCHEDULE_ROTA_DM_MONDAY})")
     else:
-        logger.info("Disabled: ROTA DM reminders")
+        logger.info("Disabled: ROTA DM reminder - Monday (SCHEDULE_ROTA_DM_MONDAY not set)")
 
-    # 3. Smartsheet to Google Sheets sync job (daily at 8 AM)
-    if config.ENABLE_SHEET_SYNC:
+    # 3. ROTA Smartsheet to Google Sheets sync job
+    if worker_config.SCHEDULE_ROTA_SHEET_SYNC:
         scheduler.add_cron_job(
             func=sync_smartsheet_to_gsheet,
-            job_id="smartsheet_sync",
-            cron_expression=config.SCHEDULE_SHEET_SYNC,
+            job_id="rota_sheet_sync",
+            cron_expression=worker_config.SCHEDULE_ROTA_SHEET_SYNC,
             use_lock=True,
         )
-        logger.info(f"Enabled: Smartsheet sync ({config.SCHEDULE_SHEET_SYNC})")
+        logger.info(f"Enabled: ROTA Smartsheet sync ({worker_config.SCHEDULE_ROTA_SHEET_SYNC})")
     else:
-        logger.info("Disabled: Smartsheet sync")
+        logger.info("Disabled: ROTA Smartsheet sync (SCHEDULE_ROTA_SHEET_SYNC not set)")
 
     logger.info(
         f"Job setup complete. Total jobs scheduled: {len(scheduler.scheduler.get_jobs())}"
@@ -105,13 +103,13 @@ def main():
         validate_config()
 
         # Create lock directory if it doesn't exist
-        lock_dir = Path(config.LOCK_DIR)
+        lock_dir = Path(worker_config.LOCK_DIR)
         lock_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Lock directory: {lock_dir}")
 
         # Initialize scheduler
-        logger.info(f"Initializing scheduler (timezone: {config.TIMEZONE})...")
-        scheduler = JobScheduler(timezone=config.TIMEZONE)
+        logger.info(f"Initializing scheduler (timezone: {worker_config.TIMEZONE})...")
+        scheduler = JobScheduler(timezone=worker_config.TIMEZONE)
 
         # Set up jobs
         setup_jobs(scheduler)
