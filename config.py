@@ -1,11 +1,12 @@
+import json
 import logging
 import os
-from dotenv import load_dotenv
-from dynaconf import Dynaconf
 import tempfile
-import json
+
 import httpx
 import hvac
+from dotenv import load_dotenv
+from dynaconf import Dynaconf
 
 required_keys = [
     "SLACK_BOT_TOKEN",
@@ -40,25 +41,12 @@ req_env_vars = {
     "VAULT_KV_VERSION_FOR_DYNACONF",
 }
 
-# DON'T MOVE: `basicConfig` gets called only once. Dynaconf sets it to `WARNING` so our setting should be above that
-log_level = os.getenv("LOG_LEVEL", "INFO")
-log_level = log_level.upper()
-log_level_int = getattr(logging, log_level, 20)
-log_format = "[%(asctime)s %(levelname)s %(name)s] %(message)s"
-logging.basicConfig(level=log_level_int, format=log_format)
-
 vault_enabled = req_env_vars <= set(os.environ.keys())  # subset of os.environ
 
 # Load CA Cert to avoid SSL errors
 ca_bundle_file = tempfile.NamedTemporaryFile()
-cert_txt = os.getenv("RH_CA_BUNDLE_TEXT", "")
-cert_text_final = cert_txt.replace("\\n", "\n")
 with open(ca_bundle_file.name, "w") as f:
-    f.write(cert_text_final)
-
-# print("CA bundle file:", ca_bundle_file.name)
-# os.system(f"cat  {ca_bundle_file.name}")
-
+    f.write(os.getenv("RH_CA_BUNDLE_TEXT", ""))
 
 try:
     config = Dynaconf(

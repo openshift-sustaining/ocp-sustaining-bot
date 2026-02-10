@@ -1,8 +1,10 @@
-from config import config
-import gspread
-import re
 import logging
+import re
 from datetime import date
+
+import gspread
+
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +112,11 @@ class GSheet:
             self._assignment_wsheet.update_acell(cell_a1, user)
 
 
+# Initialize GSheet instance at module load
 try:
+    logger.info("Initializing GSheet connection...")
     gsheet = GSheet()
-except Exception as ex:
+    logger.info("GSheet connection established successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize GSheet: {e}", exc_info=True)
     gsheet = None
-    logging.info(f"Error in call to Gsheet : {repr(ex)}")
