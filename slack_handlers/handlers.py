@@ -9,6 +9,7 @@ from sdk.tools.help_system import (
     get_openstack_flavors,
     get_aws_instance_states,
     get_aws_instance_types,
+    get_aws_os_names,
 )
 from sdk.gsheet.gsheet import gsheet
 import logging
@@ -288,7 +289,7 @@ def handle_hello(say, user):
             "description": "Operating system name",
             "required": True,
             "type": "str",
-            "choices": ["linux"],
+            "choices": get_aws_os_names,
         },
         "instance_type": {
             "description": "EC2 instance type",
@@ -345,17 +346,15 @@ def handle_create_aws_vm(say, user, region, app, params_dict):
             say(":warning: `key_pair` should be either `new` or `existing`")
             return
 
-        # Ensure os_name is either 'Linux' or 'linux'
-        if os_name and os_name.strip().lower() == "linux":
-            logger.info(f"Operating System selected: {os_name}")
+        os_name_lower = os_name.strip().lower() if os_name else ""
+        aws_ami_map = getattr(config, "AWS_AMI_MAP", {"linux": "ami-0402e56c0a7afb78f"})
+        ami_id = aws_ami_map.get(os_name_lower)
 
-            # Use the hardcoded AMI ID for Amazon Linux
-            ami_id = (
-                "ami-0402e56c0a7afb78f"  # Replace with actual AMI ID for your region
-            )
+        if ami_id:
+            logger.info(f"Operating System selected: {os_name}")
             logger.info(f"Using AMI ID: {ami_id}")
             say(
-                ":hourglass_flowing_sand: Now processing your request for a Linux Instance... Please wait."
+                f":hourglass_flowing_sand: Now processing your request for a {os_name} Instance... Please wait."
             )
 
             # Create EC2 instance using the helper
@@ -371,9 +370,9 @@ def handle_create_aws_vm(say, user, region, app, params_dict):
                 return
 
             server_status_dict = ec2_helper.create_instance(
-                ami_id,  # AMI ID for Amazon Linux
-                instance_type,  # Instance type (e.g., t2.micro)
-                key_to_use["KeyName"],  # Key pair (e.g., your_key_pair_name)
+                ami_id,
+                instance_type,
+                key_to_use["KeyName"],
             )
 
             # Log the server creation response for debugging
@@ -437,7 +436,10 @@ def handle_create_aws_vm(say, user, region, app, params_dict):
                 say(":x: *EC2 instance creation failed.* No instance returned.")
                 logger.error("EC2 creation failed: No instance returned in response.")
         else:
-            say(f":x: Unsupported OS name: `{os_name}`. Only `Linux` is supported.")
+            say(
+                f":x: Unsupported OS name: `{os_name}`. "
+                f"Supported OS names: {', '.join(aws_ami_map.keys())}"
+            )
             return
 
     except Exception as e:

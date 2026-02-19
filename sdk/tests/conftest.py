@@ -25,6 +25,7 @@ def setup_environment_variables():
     os.environ["ALLOW_ALL_WORKSPACE_USERS"] = "ALLOW_ALL_WORKSPACE_USERS"
     os.environ["ALLOWED_SLACK_USERS"] = "ALLOWED_SLACK_USERS"
     os.environ["OS_IMAGE_MAP"] = '{"root": "dummy-image-id"}'
+    os.environ["AWS_AMI_MAP"] = '{"linux": "ami-dummy"}'
     os.environ["OS_NETWORK_MAP"] = '{"network1": "dummy-network-id"}'
     os.environ["OS_DEFAULT_NETWORK"] = "network1"
     os.environ["OS_DEFAULT_SSH_USER"] = "root"
