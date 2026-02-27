@@ -9,7 +9,7 @@ from sdk.tools.help_system import (
     get_openstack_flavors,
     get_aws_instance_states,
     get_aws_instance_types,
-    get_aws_os_names,
+    get_aws_os_ami_names,
 )
 from sdk.gsheet.gsheet import gsheet
 import logging
@@ -289,7 +289,7 @@ def handle_hello(say, user):
             "description": "Operating system name",
             "required": True,
             "type": "str",
-            "choices": get_aws_os_names,
+            "choices": get_aws_os_ami_names,
         },
         "instance_type": {
             "description": "EC2 instance type",

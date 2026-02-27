@@ -94,7 +94,7 @@ def get_openstack_os_names():
         return ["<error getting OS names>"]
 
 
-def get_aws_os_names():
+def get_aws_os_ami_names():
     """Get available AWS OS names from config."""
     try:
         aws_ami_map = getattr(config, "AWS_AMI_MAP", {"linux": "ami-0402e56c0a7afb78f"})
