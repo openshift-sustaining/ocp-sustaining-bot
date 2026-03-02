@@ -24,3 +24,4 @@ def setup_environment_variables():
     os.environ["OS_AUTH_TYPE"] = "v3applicationcredential"
     os.environ["ALLOW_ALL_WORKSPACE_USERS"] = "false"
     os.environ["ALLOWED_SLACK_USERS"] = "false"
+    os.environ["AWS_AMI_MAP"] = '{"linux": "ami-dummy"}'

@@ -94,6 +94,16 @@ def get_openstack_os_names():
         return ["<error getting OS names>"]
 
 
+def get_aws_os_ami_names():
+    """Get available AWS OS names from config."""
+    try:
+        aws_ami_map = getattr(config, "AWS_AMI_MAP", {"linux": "ami-0402e56c0a7afb78f"})
+        return list(aws_ami_map.keys())
+    except Exception as e:
+        logger.error(f"Error getting AWS OS names: {e}")
+        return ["<error getting OS names>"]
+
+
 def get_openstack_statuses():
     """Get valid OpenStack VM statuses."""
     return ["ACTIVE", "SHUTOFF", "ERROR"]
