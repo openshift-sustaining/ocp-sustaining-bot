@@ -75,7 +75,82 @@ OS_PROJECT_NAME=your-openstack-project-name
 ```bash
 python slack_main.py
 ```
-## Slack Commands
+## Project Structure
+
+```
+ocp-sustaining-bot/
+├── slack_main.py              # Main Slack bot application
+├── config.py                   # Configuration management
+├── sdk/                        # Reusable Python SDK modules
+│   ├── aws/                    # AWS EC2 operations
+│   ├── azure/                  # Azure VM operations
+│   ├── gcp/                    # GCP Compute Engine operations
+│   ├── gsheet/                 # Google Sheets integration
+│   ├── jira/                   # JIRA integration
+│   ├── ocp/                    # OCP operations
+│   ├── openstack/              # OpenStack operations
+│   └── citools/                # Jenkins, Prow operations
+├── slack_handlers/             # Command handlers for Slack bot
+├── slack_worker/               # Scheduled job service
+│   ├── main.py                 # Worker entry point
+│   ├── scheduler.py            # APScheduler with file locking
+│   ├── slack_client.py         # Slack API wrapper
+│   ├── config.py               # Worker configuration
+│   ├── jobs/                   # Scheduled jobs
+│   │   ├── rota_reminders.py   # ROTA notifications
+│   │   └── sheet_sync.py       # Smartsheet sync
+│   ├── smartsheet_client/      # Smartsheet API integration
+│   ├── tests/                  # Unit tests
+│   ├── Dockerfile              # Container build
+│   └── requirements.txt        # Python dependencies
+├── api/                        # FastAPI wrapper (optional)
+└── scripts/                    # Terraform and utility scripts
+```
+
+## Architecture
+
+### Main Bot (`slack_main.py`)
+Handles interactive Slack commands:
+- Infrastructure operations (AWS, Azure, GCP, OpenStack)
+- JIRA integration
+- CI/CD tools (Jenkins, Prow)
+- Real-time event handling
+
+### Worker Service (`slack_worker/`)
+Automated scheduled jobs:
+- **ROTA Reminders**: Posts release schedules every Monday/Thursday
+- **DM Notifications**: Sends individual reminders on Friday/Monday
+- **Sheet Sync**: Syncs Smartsheet to Google Sheets daily
+- **File-based Locking**: Prevents duplicate execution in scaled deployments
+
+### SDK (`sdk/`)
+Reusable modules for cloud operations and integrations:
+- Cloud providers: AWS, Azure, GCP, OpenStack
+- Services: Google Sheets, JIRA, Jenkins, Prow
+
+## Running the Services
+
+### Start Main Bot
+```bash
+python slack_main.py
+```
+
+### Start Worker Service
+```bash
+python -m slack_worker.main
+```
+
+### Using Docker
+```bash
+# Build images
+docker build -f api/Dockerfile -t slack-bot-api .
+docker build -f slack_worker/Dockerfile -t slack-worker .
+
+# Run with docker-compose
+docker-compose -f slack_worker/docker-compose.yml up
+```
+
+
 
 **create-aws-cluster <cluster_name>**
 Creates an AWS OpenShift cluster using the provided cluster_name.
@@ -198,4 +273,4 @@ I will have those tasks added under our sustaining jira project soon.
 
    **Increase the log**:
    
-   update root/sec/.env and set LOG_LEVEL=DEBUG . Then stop the container and restart it with above mentioned run command.
+   update root/sec/.env and set LOG_LEVEL=DEBUG. Then stop the container and restart it with above mentioned run command.

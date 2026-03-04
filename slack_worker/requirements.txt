@@ -1,0 +1,30 @@
+# Slack Worker Service Requirements
+
+# APScheduler for job scheduling
+APScheduler==3.10.4
+
+# Slack SDK for sending messages
+slack-sdk==3.33.5
+
+# Smartsheet SDK for reading data
+smartsheet-python-sdk==3.0.3
+
+# Google Sheets API
+gspread==6.2.1
+
+# HTTP client
+httpx==0.28.1
+
+# Configuration management
+python-dotenv==1.1.0
+dynaconf[vault]==3.2.11
+
+# Timezone support
+pytz==2024.1
+
+# Testing
+pytest==8.3.5
+pytest-cov==6.0.0
+pytest-mock==3.14.0
+
+
