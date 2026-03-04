@@ -1,6 +1,6 @@
 # OCP Infra Slack Bot
 
-This is a Slack bot built to help users interact with AWS and OpenStack cloud resources through simple commands. The bot can create OpenShift clusters in AWS and virtual machines in OpenStack etc etc. It can connect to JIRA and Jenkins to perform some tasks.It also provides helpful information when mentioned or through direct messages.
+This is a Slack bot built to help users interact with AWS and OpenStack cloud resources through simple commands. The bot can create OpenShift clusters in AWS and virtual machines in OpenStack etc etc. It can connect to JIRA and Jenkins to perform some tasks. It also provides helpful information when mentioned or through direct messages.
 
 ## Features
 
@@ -11,6 +11,7 @@ This is a Slack bot built to help users interact with AWS and OpenStack cloud re
 - **Message Handling**: The bot can respond to messages and mentions, providing helpful information or performing actions based on user input.
 - **Common slack SDK python module** : we are building a common slack backend python module which is opensource and can be installable and reusable . Planning to push to pypi public python registry available to all.
 - **API interface using above module** : we are also building an api wrapper around the SDK . This can be deployed an independet app and provides same integrations that we are using in slackbot . This will be helpful to have same functionality with other apps such as google chat etc.
+- **ROTA Notifications**: Automated release schedule reminders - group notifications, individual DMs, and Smartsheet to Google Sheets sync.
 
 ## Technologies
 
@@ -75,6 +76,7 @@ OS_PROJECT_NAME=your-openstack-project-name
 ```bash
 python slack_main.py
 ```
+
 ## Slack Commands
 
 **create-aws-cluster <cluster_name>**
@@ -146,6 +148,31 @@ The bot responds to the following events:
 Direct Messages: Responds to DMs with helpful information.
 Mentions: If the bot is mentioned in a message, it can respond with a message or trigger an action.
 
+## ROTA Notifications System
+
+Automated release schedule management with three main components:
+
+### 1. Smartsheet to Google Sheets Sync
+- **Schedule**: Daily at 8 AM (UTC)
+- **Function**: Fetches OCP release data from Smartsheet (versions 4.12-4.16)
+- **Filtering**: Z-stream format only, dev flag enabled, current month + 1 month ahead
+- **Output**: Writes to Google Sheets (ROTA → Assignments worksheet)
+- **Status**: Tracks "Is Active?" for each release
+
+### 2. Group Reminder Notification
+- **Schedule**: Monday & Thursday at 9 AM (UTC)
+- **Function**: Posts release schedule to Slack channel
+- **Content**: Current week and next week releases
+- **Audience**: Entire team in configured Slack channel
+
+### 3. Individual DM Reminders
+- **Schedule**: Friday at 9 AM, Monday at 9 AM (UTC)
+- **Function**: Sends direct messages to team members
+- **Content**: Personalized release reminders
+- **Audience**: Individual Slack users in ROTA rotation
+
+### Configuration
+See [SLACK_WORKER_IMPLEMENTATION.md](./SLACK_WORKER_IMPLEMENTATION.md) for detailed setup and [CONTAINERIZATION_GUIDE.md](./CONTAINERIZATION_GUIDE.md) for Docker deployment.
 
 ## Contributions
 
@@ -173,6 +200,7 @@ Feel free to fork the repository and submit pull requests. Contributions are wel
 ## Draft requirements 
 
 Please refer to the below google docs 
+
 https://docs.google.com/document/d/1D_efhIfCjikWhoY43WqJOOe25DEKsWeXIbmEpqkFJfo/edit?tab=t.0
 I will have those tasks added under our sustaining jira project soon.
 
@@ -198,4 +226,4 @@ I will have those tasks added under our sustaining jira project soon.
 
    **Increase the log**:
    
-   update root/sec/.env and set LOG_LEVEL=DEBUG . Then stop the container and restart it with above mentioned run command.
+   update root/sec/.env and set LOG_LEVEL=DEBUG. Then stop the container and restart it with above mentioned run command.

@@ -9,12 +9,9 @@ logger = logging.getLogger(__name__)
 
 class GSheet:
     def __init__(self, token: dict = config.ROTA_SERVICE_ACCOUNT):
-        rota_sheet = getattr(config, "ROTA_SHEET", "ROTA")
-        assignment_wsheet = getattr(config, "ASSIGNMENT_WSHEET", "Assignments")
-
         account = gspread.service_account_from_dict(token)
-        self._rota_sheet = account.open(rota_sheet)
-        self._assignment_wsheet = self._rota_sheet.worksheet(assignment_wsheet)
+        self._rota_sheet = account.open(config.ROTA_SHEET)
+        self._assignment_wsheet = self._rota_sheet.worksheet(config.ASSIGNMENT_WSHEET)
 
     def add_release(
         self,
