@@ -14,9 +14,6 @@ import requests.exceptions
 from dotenv import load_dotenv
 from dynaconf import Dynaconf
 
-logger = logging.getLogger(__name__)
-
-# Required environment variables for worker service
 required_keys = [
     "SLACK_BOT_TOKEN",
     "ROTA_SERVICE_ACCOUNT",
@@ -35,6 +32,13 @@ req_env_vars = {
     "VAULT_PATH_FOR_DYNACONF",
     "VAULT_KV_VERSION_FOR_DYNACONF",
 }
+
+# DON'T MOVE: `basicConfig` gets called only once. Dynaconf sets it to `WARNING` so our setting should be above that
+log_level = os.getenv("LOG_LEVEL", "INFO")
+log_level = log_level.upper()
+log_level_int = getattr(logging, log_level, 20)
+log_format = "[%(asctime)s %(levelname)s %(name)s] %(message)s"
+logging.basicConfig(level=log_level_int, format=log_format)
 
 vault_enabled = req_env_vars <= set(os.environ.keys())  # subset of os.environ
 
@@ -66,99 +70,23 @@ try:
                 val = json.loads(value)
                 config.set(key, val)
         except json.decoder.JSONDecodeError:
-            logger.debug(f"{key} is not a valid JSON string")
+            logging.debug(f"{key} is not a valid JSON string.")
         except AttributeError:
-            logger.debug(f"Attribute {key} not found.")
+            logging.debug(f"Attribute {key} not found.")
 except (
     httpx.ConnectError,
     ConnectionError,
     requests.exceptions.SSLError,
     requests.exceptions.ConnectionError,
 ):
-    logger.warning("Vault connection failed — continuing with env/dotenv config only")
+    logging.warning("Vault connection failed — continuing with env/dotenv config only")
     config = Dynaconf(load_dotenv=True, environment=False, vault_enabled=False, envvar_prefix=False)
 except hvac.exceptions.InvalidRequest:
-    logger.warning("Vault authentication error — continuing with env/dotenv config only")
+    logging.warning("Vault authentication error — continuing with env/dotenv config only")
     config = Dynaconf(load_dotenv=True, environment=False, vault_enabled=False, envvar_prefix=False)
 
-# Set defaults for optional worker config if not in Vault/env
-if not hasattr(config, "ROTA_GROUP_CHANNEL"):
-    config.ROTA_GROUP_CHANNEL = os.getenv("ROTA_GROUP_CHANNEL", "")
-
-if not hasattr(config, "SPREADSHEET_ID"):
-    config.SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "")
-
-if not hasattr(config, "ROTA_SHEET"):
-    config.ROTA_SHEET = os.getenv("ROTA_SHEET", "ROTA")
-
-if not hasattr(config, "ASSIGNMENT_WSHEET"):
-    config.ASSIGNMENT_WSHEET = os.getenv("ASSIGNMENT_WSHEET", "Assignments")
-
-if not hasattr(config, "SMARTSHEET_ACCESS_TOKEN"):
-    config.SMARTSHEET_ACCESS_TOKEN = os.getenv("SMARTSHEET_ACCESS_TOKEN", "")
-
-if not hasattr(config, "ROTA_LEADS"):
-    rota_leads_str = os.getenv("ROTA_LEADS", "")
-    config.ROTA_LEADS = rota_leads_str.split(",") if rota_leads_str else []
-
-if not hasattr(config, "ROTA_MEMBERS"):
-    rota_members_str = os.getenv("ROTA_MEMBERS", "")
-    config.ROTA_MEMBERS = rota_members_str.split(",") if rota_members_str else []
-
-if not hasattr(config, "SCHEDULE_ROTA_NOTIFICATIONS"):
-    config.SCHEDULE_ROTA_NOTIFICATIONS = os.getenv(
-        "SCHEDULE_ROTA_NOTIFICATIONS", "0 9 * * MON,THU"
-    )
-
-if not hasattr(config, "SCHEDULE_ROTA_SHEET_SYNC"):
-    config.SCHEDULE_ROTA_SHEET_SYNC = os.getenv(
-        "SCHEDULE_ROTA_SHEET_SYNC", "0 8 * * MON,THU"
-    )
-
-if not hasattr(config, "LOCK_DIR"):
-    config.LOCK_DIR = os.getenv("LOCK_DIR", "/tmp/slack_worker_locks")
-
-if not hasattr(config, "LOCK_TIMEOUT"):
-    config.LOCK_TIMEOUT = int(os.getenv("LOCK_TIMEOUT", "300"))
-
-if not hasattr(config, "TIMEZONE"):
-    config.TIMEZONE = os.getenv("TIMEZONE", "UTC")
-
-if not hasattr(config, "LOG_LEVEL"):
-    config.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-
-
-def validate_config():
-    """Validate that required configuration is present"""
-    errors = []
-
-    if not hasattr(config, "SLACK_BOT_TOKEN") or not config.SLACK_BOT_TOKEN:
-        errors.append("SLACK_BOT_TOKEN is required")
-
-    if not hasattr(config, "ROTA_SERVICE_ACCOUNT") or not config.ROTA_SERVICE_ACCOUNT:
-        errors.append("ROTA_SERVICE_ACCOUNT is required")
-
-    if (
-        hasattr(config, "SCHEDULE_ROTA_NOTIFICATIONS")
-        and config.SCHEDULE_ROTA_NOTIFICATIONS
-    ):
-        if not hasattr(config, "ROTA_GROUP_CHANNEL") or not config.ROTA_GROUP_CHANNEL:
-            errors.append(
-                "ROTA_GROUP_CHANNEL is required when notifications are enabled"
-            )
-
-    if hasattr(config, "SCHEDULE_ROTA_SHEET_SYNC") and config.SCHEDULE_ROTA_SHEET_SYNC:
-        if (
-            not hasattr(config, "SMARTSHEET_ACCESS_TOKEN")
-            or not config.SMARTSHEET_ACCESS_TOKEN
-        ):
-            errors.append(
-                "SMARTSHEET_ACCESS_TOKEN is required when sheet sync is enabled"
-            )
-
-    if errors:
-        for error in errors:
-            logger.error(error)
-        raise ValueError(f"Configuration validation failed: {', '.join(errors)}")
-
-    logger.info("Configuration validation successful")
+# Verify that all keys were loaded correctly
+for k in required_keys:
+    if not hasattr(config, k):
+        logging.error(f"Could not read key: {k} from Vault.")
+        raise AttributeError(f"Could not read key: {k} from Vault.")

@@ -10,19 +10,12 @@ from pathlib import Path
 # Add parent directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from slack_worker.config import config, validate_config
+from slack_worker.config import config
 from slack_worker.jobs import (
     send_rota_notifications,
     sync_releases_to_gsheet,
 )
 from slack_worker.scheduler import JobScheduler
-
-# Configure logging
-logging.basicConfig(
-    level=getattr(logging, config.LOG_LEVEL.upper(), logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +67,6 @@ def main():
     logger.info("=" * 60)
 
     try:
-        # Validate configuration
-        logger.info("Validating configuration...")
-        validate_config()
-
         # Create lock directory if it doesn't exist
         lock_dir = Path(config.LOCK_DIR)
         lock_dir.mkdir(parents=True, exist_ok=True)
