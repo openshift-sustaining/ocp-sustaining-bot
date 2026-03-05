@@ -1,4 +1,8 @@
-from config import config
+try:
+    from config import config
+except ModuleNotFoundError:
+    from slack_worker.config import config
+
 import gspread
 import re
 import logging

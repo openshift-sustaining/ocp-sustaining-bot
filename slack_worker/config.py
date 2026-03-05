@@ -10,6 +10,7 @@ import tempfile
 
 import httpx
 import hvac
+import requests.exceptions
 from dotenv import load_dotenv
 from dynaconf import Dynaconf
 
@@ -39,37 +40,46 @@ vault_enabled = req_env_vars <= set(os.environ.keys())  # subset of os.environ
 
 # Load CA Cert to avoid SSL errors
 ca_bundle_file = tempfile.NamedTemporaryFile()
+cert_txt = os.getenv("RH_CA_BUNDLE_TEXT", "")
+cert_text_final = cert_txt.replace("\\n", "\n")
 with open(ca_bundle_file.name, "w") as f:
-    f.write(os.getenv("RH_CA_BUNDLE_TEXT", ""))
+    f.write(cert_text_final)
 
+config = Dynaconf(
+    load_dotenv=True,
+    environment=False,
+    vault_enabled=vault_enabled,
+    vault={
+        "url": os.getenv("VAULT_URL_FOR_DYNACONF", ""),
+        "verify": ca_bundle_file.name,
+    },
+    envvar_prefix=False,
+)
+
+# Dynaconf is lazy -- vault connection happens on first access (dir/getattr),
+# not at construction time. Catch vault errors here where they actually occur.
 try:
-    config = Dynaconf(
-        load_dotenv=True,  # This will load config from `.env`
-        environment=False,  # This will disable layered env
-        vault_enabled=vault_enabled,
-        vault={
-            "url": os.getenv("VAULT_URL_FOR_DYNACONF", ""),
-            "verify": ca_bundle_file.name,
-        },
-        envvar_prefix=False,  # This will make it so that ALL the variables from `.env` are loaded
-    )
-except (httpx.ConnectError, ConnectionError):
-    logger.warning("Vault connection failed")
+    for key in dir(config):
+        try:
+            value = getattr(config, key)
+            if isinstance(value, str):
+                val = json.loads(value)
+                config.set(key, val)
+        except json.decoder.JSONDecodeError:
+            logger.debug(f"{key} is not a valid JSON string")
+        except AttributeError:
+            logger.debug(f"Attribute {key} not found.")
+except (
+    httpx.ConnectError,
+    ConnectionError,
+    requests.exceptions.SSLError,
+    requests.exceptions.ConnectionError,
+):
+    logger.warning("Vault connection failed — continuing with env/dotenv config only")
+    config = Dynaconf(load_dotenv=True, environment=False, vault_enabled=False, envvar_prefix=False)
 except hvac.exceptions.InvalidRequest:
-    logger.warning("Authentication error with Vault")
-
-# Parse JSON configurations and convert to appropriate types
-for key in dir(config):
-    try:
-        value = getattr(config, key)
-        if isinstance(value, str):
-            val = json.loads(value)
-            config.set(key, val)
-    except json.decoder.JSONDecodeError:
-        logger.warning(f"{key} is not a valid JSON string")
-        pass
-    except AttributeError:
-        logger.warning(f"Attribute {key} not found.")
+    logger.warning("Vault authentication error — continuing with env/dotenv config only")
+    config = Dynaconf(load_dotenv=True, environment=False, vault_enabled=False, envvar_prefix=False)
 
 # Set defaults for optional worker config if not in Vault/env
 if not hasattr(config, "ROTA_GROUP_CHANNEL"):
