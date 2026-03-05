@@ -19,6 +19,8 @@ required_keys = [
     "ROTA_SERVICE_ACCOUNT",
     "ROTA_USERS",
     "ROTA_ADMINS",
+    "LOCK_DIR",
+    "TIMEZONE",
 ]
 
 load_dotenv()
