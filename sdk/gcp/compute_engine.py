@@ -21,16 +21,14 @@ class GCPHelper:
         )
         self.project_id = _info.get("project_id", "")
         network = getattr(config, "GCP_NETWORK", None) or "default"
-        #network = "slackbot-vpc"
+        # network = "slackbot-vpc"
         if not network.startswith(("projects/", "global/")):
             network = f"global/networks/{network}"
         self.network = network
         # Subnetwork required for custom VPC; use same region as helper
         subnetwork = getattr(config, "GCP_SUBNETWORK", None)
-        #subnetwork = "slackbot-vpc-net1"
-        if subnetwork and not subnetwork.startswith(
-            ("projects/", "regions/")
-        ):
+        # subnetwork = "slackbot-vpc-net1"
+        if subnetwork and not subnetwork.startswith(("projects/", "regions/")):
             subnetwork = f"regions/{self.region}/subnetworks/{subnetwork}"
         self.subnetwork = subnetwork
         logger.info(f"Region set for session: {self.region}")
@@ -214,7 +212,10 @@ class GCPHelper:
                     machine_type = ""
                     if instance.machine_type:
                         machine_type = instance.machine_type.split("/")[-1].lower()
-                    if instance_type_filters and machine_type not in instance_type_filters:
+                    if (
+                        instance_type_filters
+                        and machine_type not in instance_type_filters
+                    ):
                         continue
                     if instance_ids:
                         name_ok = instance.name in instance_ids
@@ -238,8 +239,6 @@ class GCPHelper:
         except Exception as e:
             logger.error(f"Unable to get instances from GCP: {e}")
             raise
-
-
 
     def create_instance(
         self,
@@ -297,9 +296,7 @@ class GCPHelper:
             if image_id.startswith("projects/"):
                 source_image = image_id
             else:
-                source_image = (
-                    f"projects/debian-cloud/global/images/family/{image_id}"
-                )
+                source_image = f"projects/debian-cloud/global/images/family/{image_id}"
 
             disk_size_gb = 10
             boot_disk = compute_v1.AttachedDisk()
@@ -360,9 +357,7 @@ class GCPHelper:
                 "instance_type": instance_type,
                 "public_ip": public_ip,
             }
-            logger.info(
-                f"Instance {instance_name} created successfully in {zone}"
-            )
+            logger.info(f"Instance {instance_name} created successfully in {zone}")
             return {"count": 1, "instances": [instance_info]}
         except google_exceptions.Forbidden as e:
             logger.error(f"GCP Compute API Forbidden (403): {e}")

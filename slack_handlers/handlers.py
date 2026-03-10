@@ -519,7 +519,9 @@ def handle_create_gcp_vm(say, user, params_dict):
         image_id = gcp_image_map.get(os_name_lower)
 
         if image_id:
-            logger.info(f"User: {user}, Operating System selected: {os_name}, image: {image_id}")
+            logger.info(
+                f"User: {user}, Operating System selected: {os_name}, image: {image_id}"
+            )
             say(
                 ":hourglass_flowing_sand: Now processing your request for a GCP VM... Please wait."
             )
@@ -773,9 +775,6 @@ def handle_list_gcp_vms(say, user, params_dict):
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
-
-
-
 
 
 # Helper function to list AWS EC2 instances
