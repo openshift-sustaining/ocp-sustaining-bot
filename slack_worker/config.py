@@ -82,10 +82,16 @@ except (
     requests.exceptions.ConnectionError,
 ):
     logging.warning("Vault connection failed — continuing with env/dotenv config only")
-    config = Dynaconf(load_dotenv=True, environment=False, vault_enabled=False, envvar_prefix=False)
+    config = Dynaconf(
+        load_dotenv=True, environment=False, vault_enabled=False, envvar_prefix=False
+    )
 except hvac.exceptions.InvalidRequest:
-    logging.warning("Vault authentication error — continuing with env/dotenv config only")
-    config = Dynaconf(load_dotenv=True, environment=False, vault_enabled=False, envvar_prefix=False)
+    logging.warning(
+        "Vault authentication error — continuing with env/dotenv config only"
+    )
+    config = Dynaconf(
+        load_dotenv=True, environment=False, vault_enabled=False, envvar_prefix=False
+    )
 
 # Verify that all keys were loaded correctly
 for k in required_keys:
