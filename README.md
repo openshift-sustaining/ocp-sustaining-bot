@@ -77,9 +77,10 @@ python slack_main.py
 ```
 ## Slack Commands
 
+### AWS
+
 **create-aws-cluster <cluster_name>**
 Creates an AWS OpenShift cluster using the provided cluster_name.
-
 
 **aws vm create**
 Creates an AWS EC2 instance.
@@ -102,12 +103,19 @@ aws vm list --type=t3.micro,t2.micro --state=pending,stopped
 aws vm list --instance-ids=i-123456,i-987654
 
 ```
+**/aws vm modify --stop --vm-id=<instance_id>**
+Stops a specific AWS EC2 instance by its instance ID. The instance can be restarted later.
+
+**/aws vm modify --delete --vm-id=<instance_id>**
+Deletes a specific AWS EC2 instance by its instance ID.
+
+
 Note 1:
 The list of parameters that can be passed using the --type subcommand is extremely large. 
 See [https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instances.html](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instances.html) for the complete list.
 Search for t2.micro
 
-
+### Openstack
 **openstack vm create <name> <image> <flavor> <network>**
 Creates an OpenStack VM with the specified name, os type, flavor, network and key name.
 
@@ -115,14 +123,6 @@ Sample usage:
 ```
 openstack vm create --name=PAYMENTGATEWAY1 --os_name=fedora --flavor=ci.cpu.small --network=provider_net_ocp_dev --key_name=sustaining-bot-key
 ```
-
-
-**/aws vm modify --stop --vm-id=<instance_id>**
-Stops a specific AWS EC2 instance by its instance ID. The instance can be restarted later.
-
-**/aws vm modify --delete --vm-id=<instance_id>**
-Deletes a specific AWS EC2 instance by its instance ID.
-
 
 **openstack vm list <status>**
 Lists OpenStack VMs.
@@ -132,7 +132,20 @@ Sample usage:
 openstack vm list -status=ACTIVE
 openstack vm list -status=ERROR
 ```
+### GCP
+**gcp vm create**
+Creates an Google Cloud VM with the specified name, os type, instance type.
 
+gcp vm create name=<instance_name> --os_name=debian-12 --instance_type=e2-medium
+
+**/gcp vm modify --stop --vm-name=<instance_name>**
+Stops a specific GCP instance by its instance name. The instance can be restarted later.
+
+
+**/gcp vm modify --delete --vm-name=<instance_name>**
+Deletes a specific GCP instance by its instance name.
+
+### Other
 **hello**
 Greets the user with a friendly message.
 

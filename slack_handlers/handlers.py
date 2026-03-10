@@ -1,4 +1,5 @@
 from sdk.aws.ec2 import EC2Helper
+from sdk.gcp.compute_engine import GCPHelper
 from sdk.openstack.core import OpenStackHelper
 from config import config
 from sdk.tools.help_system import (
@@ -10,6 +11,9 @@ from sdk.tools.help_system import (
     get_aws_instance_states,
     get_aws_instance_types,
     get_aws_os_ami_names,
+    get_gcp_instance_states,
+    get_gcp_instance_types,
+    get_gcp_os_names,
 )
 from sdk.gsheet.gsheet import gsheet
 import logging
@@ -452,6 +456,140 @@ def handle_create_aws_vm(say, user, region, app, params_dict):
         )
 
 
+@command_meta(
+    name="gcp vm create",
+    description="Create a GCP Compute Engine VM instance",
+    arguments={
+        "name": {"description": "Name for the VM", "required": True, "type": "str"},
+        "os_name": {
+            "description": "Operating system / image name",
+            "required": True,
+            "type": "str",
+            "choices": get_gcp_os_names,
+        },
+        "instance_type": {
+            "description": "GCP machine type (e.g. e2-medium, n1-standard-1)",
+            "required": True,
+            "type": "str",
+            "choices": get_gcp_instance_types,
+        },
+    },
+    examples=[
+        "gcp vm create name=vm-test-123 --os_name=debian-12 --instance_type=e2-medium",
+        "gcp vm create name=vm-test-123 --os_name=linux --instance_type=n1-standard-1",
+    ],
+)
+def handle_create_gcp_vm(say, user, params_dict):
+    try:
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_create_gcp_vm"
+            )
+
+        os_name = params_dict.get("os_name")
+        instance_type = params_dict.get("instance_type")
+        name = params_dict.get("name")
+
+        logger.info(
+            f"Parsed Parameters: name={name}, os_name={os_name}, instance_type={instance_type}"
+        )
+
+        if not all([os_name, name, instance_type]):
+            missing_params = []
+            if not name:
+                missing_params.append("name")
+            if not os_name:
+                missing_params.append("os_name")
+            if not instance_type:
+                missing_params.append("instance_type")
+            say(
+                f":warning: Missing required parameters: {', '.join(missing_params)}. Usage: gcp vm create name=<server name> --os_name=<os> --instance_type=<type> --key_pair=<key>"
+            )
+            return
+
+        os_name_lower = os_name.strip().lower() if os_name else ""
+        gcp_image_map = getattr(
+            config,
+            "GCP_IMAGE_MAP",
+            {
+                "debian-12": "projects/debian-cloud/global/images/family/debian-12",
+                "linux": "projects/debian-cloud/global/images/family/debian-12",
+            },
+        )
+        image_id = gcp_image_map.get(os_name_lower)
+
+        if image_id:
+            logger.info(f"User: {user}, Operating System selected: {os_name}, image: {image_id}")
+            say(
+                ":hourglass_flowing_sand: Now processing your request for a GCP VM... Please wait."
+            )
+
+            gcp_helper = GCPHelper()
+            server_status_dict = gcp_helper.create_instance(
+                image_id,
+                instance_type,
+                name,
+            )
+
+            logger.debug(f"Server creation response: {server_status_dict}")
+
+            if "error" in server_status_dict:
+                error_msg = server_status_dict["error"]
+                logger.error(f"GCP instance creation failed: {error_msg}")
+                say(":x: *GCP instance creation failed.*")
+                return
+
+            servers_created = server_status_dict.get("instances", [])
+            if servers_created:
+                instance = servers_created[0]
+                instance_dict = {
+                    "instances": [
+                        {
+                            "name": instance.get("name", "unknown"),
+                            "instance_id": instance.get("instance_id", "unknown"),
+                            "instance_type": instance.get("instance_type", "unknown"),
+                            "public_ip": instance.get("public_ip", "unknown"),
+                        }
+                    ]
+                }
+                print_keys = [
+                    "name",
+                    "instance_id",
+                    "instance_type",
+                    "public_ip",
+                ]
+                say(":white_check_mark: *Successfully created GCP VM instance!*\n\n")
+                helper_display_dict_output_as_table(
+                    instance_dict,
+                    print_keys,
+                    say,
+                    block_message=" Here are the requested VM instances:",
+                )
+                say(
+                    "\n\n"
+                    ":key: *Access Instructions:*\n"
+                    "Use the following command to SSH into your instance (if SSH keys are configured in project metadata or OS Login):\n"
+                    "`ssh <username>@<Public_IP>`\n"
+                )
+            else:
+                say(":x: *GCP instance creation failed.* No instance returned.")
+                logger.error("GCP creation failed: No instance returned in response.")
+        else:
+            say(
+                f":x: Unsupported OS name: `{os_name}`. "
+                f"Supported OS names: {', '.join(gcp_image_map.keys())}"
+            )
+            return
+
+    except Exception as e:
+        logger.error("An error occurred while creating the GCP instance")
+        logger.error(f"Error Details: {e}")
+        logger.error(traceback.format_exc())
+        say(
+            ":x: An internal error occurred while creating the GCP instance. Please contact the administrator."
+        )
+
+
 def helper_create_table(data_rows, table_column_names, max_column_widths):
     """
     Given
@@ -541,6 +679,103 @@ def helper_display_dict_output_as_table(instances_dict, print_keys, say, block_m
                 row.append(column_value)
             rows.append(row)
         say(helper_create_table(rows, print_keys, max_column_widths))
+
+
+# Helper function to list GCP VM instances
+@command_meta(
+    name="gcp vm list",
+    description="List GCP VM instances with optional filtering",
+    arguments={
+        "state": {
+            "description": "Filter instances by state",
+            "required": False,
+            "type": "str",
+            "choices": get_gcp_instance_states,
+        },
+        "type": {
+            "description": "Filter instances by type",
+            "required": False,
+            "type": "str",
+            "choices": get_gcp_instance_types,
+        },
+        "instance-ids": {
+            "description": "Comma-separated list of instance IDs",
+            "required": False,
+            "type": "str",
+        },
+    },
+    examples=[
+        "gcp vm list",
+        "gcp vm list --state=running,stopped",
+        "gcp vm list --type=t2.micro,t3.small",
+        "gcp vm list --instance-ids=i-123456,i-789012",
+    ],
+)
+def handle_list_gcp_vms(say, user, params_dict):
+    try:
+        logger.info("User {user} has requested a list of GCP vms")
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_list_gcp_vms"
+            )
+
+        gcp_helper = GCPHelper()  # Set your region
+
+        instances_dict = gcp_helper.list_instances(params_dict)
+        count_servers = instances_dict.get("count", 0)
+        if count_servers == 0:
+            msg = (
+                "There are currently no GCP instances available that match the specified criteria"
+                if len(params_dict) > 0
+                else "There are currently no GCP instances to retrieve"
+            )
+            say(msg)
+        else:
+            print_keys = [
+                "instance_id",
+                "name",
+                "instance_type",
+                "state",
+                "public_ip",
+                "private_ip",
+            ]
+            helper_display_dict_output_as_table(
+                instances_dict,
+                print_keys,
+                say,
+                block_message=" Here are the requested VM instances:",
+            )
+
+    #     instances_dict = ec2_helper.list_instances(params_dict)
+    #     count_servers = instances_dict.get("count", 0)
+    #     if count_servers == 0:
+    #         msg = (
+    #             "There are currently no EC2 instances available that match the specified criteria"
+    #             if len(params_dict) > 0
+    #             else "There are currently no EC2 instances to retrieve"
+    #         )
+    #         say(msg)
+    #     else:
+    #         print_keys = [
+    #             "instance_id",
+    #             "name",
+    #             "instance_type",
+    #             "state",
+    #             "public_ip",
+    #             "private_ip",
+    #         ]
+    #         helper_display_dict_output_as_table(
+    #             instances_dict,
+    #             print_keys,
+    #             say,
+    #             block_message=" Here are the requested VM instances:",
+    #         )
+    except Exception as e:
+        logger.error(f"An error occurred listing the EC2 instances: {e}")
+        say("An internal error occurred, please contact administrator.")
+
+
+
 
 
 # Helper function to list AWS EC2 instances
@@ -713,6 +948,111 @@ def handle_aws_modify_vm(say, region, user, params_dict):
         logger.error(traceback.format_exc())
         say(
             ":x: An internal error occurred while modifying the EC2 instance. Please contact the administrator."
+        )
+
+
+@command_meta(
+    name="gcp vm modify",
+    description="Stop or delete GCP VM instances (by instance name)",
+    arguments={
+        "vm-name": {
+            "description": "Instance name to modify (e.g. vm-abc12345)",
+            "required": True,
+            "type": "str",
+        },
+        "stop": {"description": "Stop the instance", "required": False, "type": "bool"},
+        "delete": {
+            "description": "Delete the instance",
+            "required": False,
+            "type": "bool",
+        },
+    },
+    examples=[
+        "gcp vm modify --stop --vm-name=vm-abc12345",
+        "gcp vm modify --delete --vm-name=vm-abc12345",
+    ],
+)
+def handle_gcp_modify_vm(say, user, params_dict):
+    """
+    Helper function to modify GCP VM instances (stop/delete) by instance name.
+    """
+    try:
+        if not isinstance(params_dict, dict):
+            raise ValueError(
+                "Invalid parameter params_dict passed to handle_gcp_modify_vm"
+            )
+
+        stop_action = params_dict.get("stop", False)
+        delete_action = params_dict.get("delete", False)
+        vm_name = params_dict.get("vm-name")
+
+        if not vm_name or not str(vm_name).strip():
+            say(
+                ":warning: Missing required parameter `--vm-name`. Usage: `gcp vm modify --stop --vm-name=<name>` or `gcp vm modify --delete --vm-name=<name>`"
+            )
+            return
+
+        vm_name = str(vm_name).strip()
+
+        if not stop_action and not delete_action:
+            say(":warning: You must specify either `--stop` or `--delete` action.")
+            return
+
+        if stop_action and delete_action:
+            say(
+                ":warning: Please specify only one action: either `--stop` or `--delete`, not both."
+            )
+            return
+
+        gcp_helper = GCPHelper()
+
+        if stop_action:
+            logger.info(f"User {user} requested to stop GCP instance {vm_name}")
+            say(f":hourglass_flowing_sand: Attempting to stop instance `{vm_name}`...")
+
+            result = gcp_helper.stop_instance(vm_name)
+
+            if result["success"]:
+                zone = result.get("zone", "N/A")
+                say(
+                    f":white_check_mark: *Successfully stopped instance `{vm_name}`*\n"
+                    f"• Zone: `{zone}`\n"
+                    f"\n:information_source: The instance has been stopped."
+                )
+            else:
+                logger.error(
+                    f"Failed to stop instance `{vm_name}`, error: {result['error']}"
+                )
+                say(f":x: *Failed to stop instance `{vm_name}`*\n{result['error']}")
+
+        elif delete_action:
+            logger.info(f"User {user} requested to delete GCP instance {vm_name}")
+            say(
+                f":warning: *Deletion Warning*\n"
+                f"You are about to permanently delete instance `{vm_name}`. This action cannot be undone.\n"
+                f":hourglass_flowing_sand: Proceeding with deletion..."
+            )
+
+            result = gcp_helper.delete_instance(vm_name)
+
+            if result["success"]:
+                zone = result.get("zone", "N/A")
+                say(
+                    f":white_check_mark: *Successfully deleted instance `{vm_name}`*\n"
+                    f"• Zone: `{zone}`\n"
+                    f"\n:information_source: The instance has been permanently deleted."
+                )
+            else:
+                logger.error(
+                    f"Failed to delete instance `{vm_name}`, error: {result['error']}"
+                )
+                say(f":x: *Failed to delete instance `{vm_name}`*\n{result['error']}")
+
+    except Exception as e:
+        logger.error(f"An error occurred while modifying GCP instance: {e}")
+        logger.error(traceback.format_exc())
+        say(
+            ":x: An internal error occurred while modifying the GCP instance. Please contact the administrator."
         )
 
 
