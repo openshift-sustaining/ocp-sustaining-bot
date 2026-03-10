@@ -747,31 +747,6 @@ def handle_list_gcp_vms(say, user, params_dict):
                 say,
                 block_message=" Here are the requested VM instances:",
             )
-
-    #     instances_dict = ec2_helper.list_instances(params_dict)
-    #     count_servers = instances_dict.get("count", 0)
-    #     if count_servers == 0:
-    #         msg = (
-    #             "There are currently no EC2 instances available that match the specified criteria"
-    #             if len(params_dict) > 0
-    #             else "There are currently no EC2 instances to retrieve"
-    #         )
-    #         say(msg)
-    #     else:
-    #         print_keys = [
-    #             "instance_id",
-    #             "name",
-    #             "instance_type",
-    #             "state",
-    #             "public_ip",
-    #             "private_ip",
-    #         ]
-    #         helper_display_dict_output_as_table(
-    #             instances_dict,
-    #             print_keys,
-    #             say,
-    #             block_message=" Here are the requested VM instances:",
-    #         )
     except Exception as e:
         logger.error(f"An error occurred listing the EC2 instances: {e}")
         say("An internal error occurred, please contact administrator.")
