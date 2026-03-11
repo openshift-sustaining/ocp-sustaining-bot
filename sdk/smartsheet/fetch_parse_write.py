@@ -5,7 +5,6 @@ Fetches from Smartsheet → Parses → Filters → Writes to Google Sheets (dail
 
 import os
 import re
-import json
 from datetime import datetime, timedelta
 
 import requests
@@ -179,11 +178,10 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
     """
 
     try:
-        creds_str = gsheet_creds.strip()
-        if creds_str.startswith("'") and creds_str.endswith("'"):
-            creds_str = creds_str[1:-1]
-
-        creds_dict = json.loads(creds_str)
+        # this can read dict/DynaBox object → convert directly (No .strip() call to avoid JSONDecodeError from gspread's service_account_from_dict)
+        creds_dict = (
+            dict(gsheet_creds) if not isinstance(gsheet_creds, dict) else gsheet_creds
+        )
         client = gspread.service_account_from_dict(creds_dict)
 
         spreadsheet = client.open(config.ROTA_SHEET)
