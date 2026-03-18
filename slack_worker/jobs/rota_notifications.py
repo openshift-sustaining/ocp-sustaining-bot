@@ -5,7 +5,7 @@ Writes notifications to Slack channel and DMs
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from typing import Dict, List
 
 from slack_worker.config import config
@@ -13,6 +13,53 @@ from slack_worker.slack_client import slack_client
 from sdk.gsheet.gsheet import GSheet
 
 logger = logging.getLogger(__name__)
+
+
+def get_this_week_monday() -> date:
+    """Get this week's Monday date"""
+    today = datetime.now().date()
+    weekday = today.weekday()  # 0=Monday, 1=Tuesday, ..., 6=Sunday
+
+    if weekday == 0:  # Already Monday
+        return today
+    else:
+        # Go back to this week's Monday
+        return today - timedelta(days=weekday)
+
+
+def get_next_available_monday(assignment_wsheet) -> date:
+    """Get the next Monday that has releases in the sheet (could be 1+ weeks away)
+
+    Args:
+        assignment_wsheet: The worksheet to search for available Mondays
+
+    Returns:
+        The earliest Monday date after this week that has at least one release,
+        or next week's Monday if no releases are found
+    """
+    this_week_monday = get_this_week_monday()
+    values = assignment_wsheet.get_values("G:G")  # Get all column G values (ERR dates)
+
+    if not values:
+        return this_week_monday + timedelta(days=7)
+
+    # Collect all Monday dates in column G, filter for dates after this week
+    future_mondays = set()
+    for row in values[1:]:  # Skip header
+        if row and len(row) > 0 and row[0]:
+            try:
+                monday_date = datetime.strptime(row[0], "%Y-%m-%d").date()
+                if monday_date > this_week_monday:
+                    future_mondays.add(monday_date)
+            except (ValueError, IndexError):
+                continue
+
+    # Return the earliest future Monday, or default to next week
+    return (
+        min(future_mondays)
+        if future_mondays
+        else (this_week_monday + timedelta(days=7))
+    )
 
 
 def _parse_releases_from_rows(data: List[List]) -> List[Dict]:
@@ -45,6 +92,7 @@ def _parse_releases_from_rows(data: List[List]) -> List[Dict]:
 def get_current_week_releases() -> List[Dict]:
     """
     Get releases for the current week from Google Sheets
+    (Releases with ERR date = this week's Monday)
 
     Returns:
         List of release data dictionaries
@@ -53,7 +101,11 @@ def get_current_week_releases() -> List[Dict]:
     try:
         gsheet = GSheet(token=config.ROTA_SERVICE_ACCOUNT)
         logger.debug("  - Google Sheets client initialized")
-        data = gsheet.fetch_data_by_time("This Week")
+
+        this_week_monday = get_this_week_monday()
+        logger.debug(f"  - This week's Monday: {this_week_monday}")
+
+        data = gsheet.fetch_data_by_weekId(this_week_monday)
         logger.debug(f"  - Fetched raw data, rows count: {len(data) if data else 0}")
 
         if not data:
@@ -69,9 +121,10 @@ def get_current_week_releases() -> List[Dict]:
         return []
 
 
-def get_next_week_releases() -> List[Dict]:
+def get_next_releases() -> List[Dict]:
     """
     Get releases for the next week from Google Sheets
+    (Releases with ERR date = next available Monday with releases)
 
     Returns:
         List of release data dictionaries
@@ -80,7 +133,11 @@ def get_next_week_releases() -> List[Dict]:
     try:
         gsheet = GSheet(token=config.ROTA_SERVICE_ACCOUNT)
         logger.debug("  - Google Sheets client initialized")
-        data = gsheet.fetch_data_by_time("Next Week")
+
+        next_monday = get_next_available_monday(gsheet._assignment_wsheet)
+        logger.debug(f"  - Next available Monday: {next_monday}")
+
+        data = gsheet.fetch_data_by_weekId(next_monday)
         logger.debug(f"  - Fetched raw data, rows count: {len(data) if data else 0}")
 
         if not data:
@@ -147,7 +204,7 @@ def format_release_message(releases: List[Dict], week_label: str = "This Week") 
         qe2_mention = get_user_mention(qe2)
 
         message_text = (
-            f"\n*Release:* `{release['version']}`\n"
+            f"*Release:* `{release['version']}`\n"
             f":calendar: *Development Cut-off:* {release['start_date']}\n"
             f":calendar: *Fast-Channel:* {release['end_date']}\n"
             f"*Patch Manager:* {pm_mention}\n"
@@ -167,6 +224,9 @@ def send_group_reminder():
     """
     Send group reminder about the week's releases
     Posted every Monday and Thursday at 9 AM
+
+    Monday 9 AM: Current week + Next week (if found)
+    Thursday 9 AM: Same current week releases (reminder)
     """
     logger.info("Step 4a: Sending group reminder to Slack channel")
 
@@ -176,9 +236,11 @@ def send_group_reminder():
         logger.debug(f"  - Current day: {today} (day_of_week={day_of_week})")
 
         if day_of_week == 0:  # Monday
-            logger.debug("  - Monday detected: fetching current and next week releases")
+            logger.debug(
+                "  - Monday detected: fetching current week and next week releases"
+            )
             current_releases = get_current_week_releases()
-            next_releases = get_next_week_releases()
+            next_releases = get_next_releases()
 
             message_parts = [":robot_face: *ROTA Release Reminder*\n"]
 
@@ -195,7 +257,7 @@ def send_group_reminder():
                 logger.debug(
                     f"  - Adding next week section ({len(next_releases)} releases)"
                 )
-                message_parts.append("\n :threadparrot: *Next release*\n")
+                message_parts.append("\n:threadparrot: *Next release*\n")
                 message_parts.append(format_release_message(next_releases, "Next Week"))
 
             if not current_releases and not next_releases:
@@ -207,10 +269,12 @@ def send_group_reminder():
             message = "\n".join(message_parts)
 
         elif day_of_week == 3:  # Thursday
-            logger.debug("  - Thursday detected: fetching current week releases only")
+            logger.debug(
+                "  - Thursday detected: fetching current week releases (reminder)"
+            )
             current_releases = get_current_week_releases()
 
-            message_parts = ["*Mid-Week ROTA Reminder*\n"]
+            message_parts = [":robot_face: *ROTA Release Reminder (Mid-Week)*\n"]
 
             if current_releases:
                 logger.debug(
@@ -253,7 +317,9 @@ def send_group_reminder():
 def send_dm_reminders():
     """
     Send DM reminders to individuals about their releases
-    Runs Friday 5 PM & Monday 9 AM
+
+    Monday 9 AM: DMs for current week releases
+    Friday 9 AM: DMs for next week releases only (if they exist)
     """
     logger.info("Step 4b: Sending DM reminders to individuals")
 
@@ -262,15 +328,15 @@ def send_dm_reminders():
         day_of_week = today.weekday()  # 0 = Monday, 4 = Friday
         logger.debug(f"  - Current day: {today} (day_of_week={day_of_week})")
 
-        if day_of_week == 4:  # Friday
-            logger.debug("  - Friday detected: fetching current week releases")
+        if day_of_week == 0:  # Monday
+            logger.debug("  - Monday detected: fetching current week releases for DM")
             releases = get_current_week_releases()
             week_label = "this week"
 
-        elif day_of_week == 0:  # Monday
-            logger.debug("  - Monday detected: fetching current week releases")
-            releases = get_current_week_releases()
-            week_label = "this week"
+        elif day_of_week == 4:  # Friday
+            logger.debug("  - Friday detected: fetching NEXT week releases for DM")
+            releases = get_next_releases()
+            week_label = "next week"
 
         else:
             logger.warning(
@@ -348,10 +414,10 @@ def send_dm_reminders():
             for assignment in assignments:
                 release = assignment["release"]
                 role = assignment["role"]
-                message_parts.append(f"\nRelease *{release['version']}* - {role}")
+                message_parts.append(f"Release *{release['version']}* - {role}\n")
 
-            message_parts.append("\n\nKeep the builds running smoothly! :rocket:")
-            message_parts.append("\nYou've got this! :mechanical_arm:")
+            message_parts.append("Keep the builds running smoothly! :rocket:")
+            message_parts.append("You've got this! :mechanical_arm:")
 
             message = "\n".join(message_parts)
 
@@ -374,8 +440,11 @@ def send_dm_reminders():
 def send_rota_notifications():
     """
     Main ROTA notification job - combines group reminders and DM reminders
-    Runs at appropriate times based on day of week
-    Timing: Mon 9 AM (group + DM), Thu 9 AM (group), Fri 5 PM (DM)
+
+    Schedule:
+    - Monday 9 AM: Group reminder (current week + next week if found) + DM reminders (current week only)
+    - Thursday 9 AM: Group reminder only (same current week, mid-week recap)
+    - Friday 9 AM: DM reminders only (next week releases if they exist)
     """
     logger.info("=" * 60)
     logger.info("STARTING ROTA NOTIFICATION JOB")
@@ -388,16 +457,20 @@ def send_rota_notifications():
         logger.info(f"Current date: {today}")
 
         if day_of_week == 0:  # Monday
-            logger.info("Monday 9 AM: Sending group reminder and DM reminders")
+            logger.info(
+                "Monday 9 AM: Sending group reminder (current + next week if found) and DM reminders (current week)"
+            )
             send_group_reminder()
             send_dm_reminders()
 
         elif day_of_week == 3:  # Thursday
-            logger.info("Thursday 9 AM: Sending group reminder only")
+            logger.info("Thursday 9 AM: Sending group reminder (current week) only")
             send_group_reminder()
 
         elif day_of_week == 4:  # Friday
-            logger.info("Friday 5 PM: Sending DM reminders only")
+            logger.info(
+                "Friday 9 AM: Sending DM reminders (next week) only - skips if no next week releases"
+            )
             send_dm_reminders()
 
         else:

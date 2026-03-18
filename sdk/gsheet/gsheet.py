@@ -62,15 +62,20 @@ class GSheet:
 
         return return_val
 
-    def fetch_data_by_time(self, time_period: str) -> list:
-        time_period = time_period.title()  # Google Sheet has title case
-        if time_period not in ("This Week", "Next Week"):
-            logger.error(f"Incorrect time period: {time_period}")
-            raise ValueError(f"Invalid `time_period`: {time_period}")
+    def fetch_data_by_weekId(self, target_monday: date) -> list:
+        """Get releases for a specific Monday date
 
+        Args:
+            target_monday: The Monday date to filter by (from column G - ERR)
+
+        Returns:
+            List of release rows matching the target Monday
+        """
         values = self._assignment_wsheet.get_values("A:G")  # only get relevant columns
+        target_monday_str = str(target_monday)
 
-        return [v for v in values if v[6] == time_period]
+        # Filter releases where column G (ERR) matches the target Monday date
+        return [v for v in values if len(v) > 6 and v[6] == target_monday_str]
 
     def replace_user_for_release(
         self, rel_ver: str, column: str, user: str = None
