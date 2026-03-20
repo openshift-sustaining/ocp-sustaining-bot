@@ -136,9 +136,17 @@ openstack vm list -status=ERROR
 ```
 ### GCP
 **gcp vm create**
-Creates an Google Cloud VM with the specified name, os type, instance type.
+Creates a Google Cloud VM with the given name and OS. **Instance type** is optional: use ``--instance-type=<type>`` or ``--instance_type=<type>``; the value must be in ``GCP_POPULAR_INSTANCE_TYPES`` (see ``gcp_popular_instance_types`` / env). If omitted, **``GCP_DEFAULT_INSTANCE_TYPE``** is used (default **e2-medium** when allowed, else the first popular type).
 
-gcp vm create name=<instance_name> --os_name=debian-12 --instance_type=e2-medium
+Boot disk size (GB) defaults to ``GCP_BOOT_DISK_SIZE_GB`` (allowed **10, 20, 50**; see ``_GCP_DEFAULT_DISK_SIZES``). Optional ``--disk-size-gb=<n>`` overrides for this create.
+
+Popular types list: set ``GCP_POPULAR_INSTANCE_TYPES`` in ``.env`` as JSON (e.g. ``["e2-medium","n2-standard-4"]``).
+
+gcp vm create name=<instance_name> --os_name=debian-12
+
+gcp vm create name=<instance_name> --os_name=debian-12 --instance-type=n2-standard-4
+
+gcp vm create name=<instance_name> --os_name=debian-12 --instance_type=e2-medium --disk-size-gb=20
 
 **/gcp vm modify --stop --vm-name=<instance_name>**
 Stops a specific GCP instance by its instance name. The instance can be restarted later.

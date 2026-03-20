@@ -23,6 +23,29 @@ required_keys = [
     "TIMEZONE",
 ]
 
+gcp_popular_instance_types = [
+    "e2-micro",
+    "e2-small",
+    "e2-medium",
+    "e2-standard-2",
+    "e2-standard-4",
+    "e2-standard-8",
+    "n1-standard-1",
+    "n1-standard-2",
+    "n1-standard-4",
+    "n2-standard-2",
+    "n2-standard-4",
+    "n2-standard-8",
+    "n2-standard-16",
+    "n2-highmem-4",
+    "n2-highmem-8",
+    "n2d-standard-2",
+    "n2d-standard-4",
+    "n2d-standard-8",
+    "c2d-standard-4",
+    "c2d-standard-8",
+]
+
 load_dotenv()
 req_env_vars = {
     "RH_CA_BUNDLE_TEXT",

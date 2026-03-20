@@ -1,7 +1,7 @@
 from sdk.aws.ec2 import EC2Helper
 from sdk.gcp.compute_engine import GCPHelper
 from sdk.openstack.core import OpenStackHelper
-from config import config
+from config import _GCP_DEFAULT_DISK_SIZES, config
 from sdk.tools.help_system import (
     command_meta,
     handle_help_command,
@@ -11,6 +11,7 @@ from sdk.tools.help_system import (
     get_aws_instance_states,
     get_aws_instance_types,
     get_aws_os_ami_names,
+    get_gcp_boot_disk_size_choices_gb,
     get_gcp_instance_states,
     get_gcp_instance_types,
     get_gcp_os_names,
@@ -23,6 +24,21 @@ from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
+
+# Shown in `help gcp vm create` and after successful VM creation (Google OS Login).
+GCP_VM_OS_LOGIN_HELP = (
+    "*SSH (Google OS Login):*\n"
+    "SSH is tied to your Google identity when OS Login is enabled on the project.\n\n"
+    "*Project (admins):* enable OS Login, e.g.\n"
+    "`gcloud compute project-info add-metadata --metadata enable-oslogin=TRUE`\n\n"
+    "*Your workstation — add your public key once:*\n"
+    "`gcloud compute os-login ssh-keys add --key-file=~/.ssh/id_rsa.pub`\n\n"
+    "*Connect with plain SSH:*\n"
+    "`ssh -i ~/.ssh/id_rsa <OS_LOGIN_USER>@<Public_IP>`\n"
+    "Your OS Login POSIX username: `gcloud compute os-login describe-profile`\n\n"
+    "*Or use gcloud (recommended):*\n"
+    "`gcloud compute ssh <instance_name> --zone=<zone>`"
+)
 
 
 # Helper function to handle the "help" command
@@ -468,16 +484,29 @@ def handle_create_aws_vm(say, user, region, app, params_dict):
             "choices": get_gcp_os_names,
         },
         "instance_type": {
-            "description": "GCP machine type (e.g. e2-medium, n1-standard-1)",
-            "required": True,
+            "description": (
+                "GCP machine type (optional; default from GCP_DEFAULT_INSTANCE_TYPE / .env). "
+                "Must be one of GCP_POPULAR_INSTANCE_TYPES. "
+                "Use ``--instance_type`` or ``--instance-type``."
+            ),
+            "required": False,
             "type": "str",
             "choices": get_gcp_instance_types,
         },
+        "disk-size-gb": {
+            "description": "Boot disk size in GB (optional; overrides GCP_BOOT_DISK_SIZE_GB)",
+            "required": False,
+            "type": "str",
+            "choices": get_gcp_boot_disk_size_choices_gb,
+        },
     },
     examples=[
-        "gcp vm create name=vm-test-123 --os_name=debian-12 --instance_type=e2-medium",
+        "gcp vm create name=vm-test-123 --os_name=debian-12",
+        "gcp vm create name=vm-test-123 --os_name=debian-12 --instance-type=n2-standard-4",
+        "gcp vm create name=vm-test-123 --os_name=debian-12 --instance_type=e2-medium --disk-size-gb=20",
         "gcp vm create name=vm-test-123 --os_name=linux --instance_type=n1-standard-1",
     ],
+    extra_help=GCP_VM_OS_LOGIN_HELP,
 )
 def handle_create_gcp_vm(say, user, params_dict):
     try:
@@ -487,23 +516,60 @@ def handle_create_gcp_vm(say, user, params_dict):
             )
 
         os_name = params_dict.get("os_name")
-        instance_type = params_dict.get("instance_type")
+        instance_type_param = params_dict.get("instance-type") or params_dict.get(
+            "instance_type"
+        )
         name = params_dict.get("name")
-
-        logger.info(
-            f"Parsed Parameters: name={name}, os_name={os_name}, instance_type={instance_type}"
+        # ``--disk-size-gb=`` / ``--disk_size_gb=`` (parser keeps hyphens / underscores)
+        disk_size_gb_param = params_dict.get("disk-size-gb") or params_dict.get(
+            "disk_size_gb"
         )
 
-        if not all([os_name, name, instance_type]):
+        disk_gb_override = None
+        if disk_size_gb_param not in (None, "", False):
+            try:
+                disk_gb_override = int(str(disk_size_gb_param).strip())
+            except ValueError:
+                say(
+                    ":warning: `--disk-size-gb` must be an integer (GB).\n"
+                    f"Allowed values: {', '.join(str(x) for x in _GCP_DEFAULT_DISK_SIZES)}."
+                )
+                return
+            if disk_gb_override not in _GCP_DEFAULT_DISK_SIZES:
+                say(
+                    f":warning: `--disk-size-gb` must be one of {_GCP_DEFAULT_DISK_SIZES} GB."
+                )
+                return
+
+        _allowed_types = list(config.GCP_POPULAR_INSTANCE_TYPES)
+        if instance_type_param in (None, "", False):
+            instance_type = config.GCP_DEFAULT_INSTANCE_TYPE
+        else:
+            instance_type = str(instance_type_param).strip().lower()
+            if instance_type not in _allowed_types:
+                say(
+                    ":warning: Instance type must be one of the configured popular types.\n"
+                    f"Allowed: {', '.join(_allowed_types)}.\n"
+                    f"Omit ``--instance-type`` / ``--instance_type`` to use default "
+                    f"`{config.GCP_DEFAULT_INSTANCE_TYPE}`."
+                )
+                return
+
+        logger.info(
+            f"Parsed Parameters: name={name}, os_name={os_name}, "
+            f"instance_type={instance_type}, disk_gb_override={disk_gb_override}"
+        )
+
+        if not all([os_name, name]):
             missing_params = []
             if not name:
                 missing_params.append("name")
             if not os_name:
                 missing_params.append("os_name")
-            if not instance_type:
-                missing_params.append("instance_type")
             say(
-                f":warning: Missing required parameters: {', '.join(missing_params)}. Usage: gcp vm create name=<server name> --os_name=<os> --instance_type=<type> --key_pair=<key>"
+                f":warning: Missing required parameters: {', '.join(missing_params)}. "
+                "Usage: gcp vm create name=<server name> --os_name=<os> "
+                "[--instance-type=<type>]"
             )
             return
 
@@ -531,6 +597,7 @@ def handle_create_gcp_vm(say, user, params_dict):
                 image_id,
                 instance_type,
                 name,
+                disk_gb_override=disk_gb_override,
             )
 
             logger.debug(f"Server creation response: {server_status_dict}")
@@ -538,7 +605,7 @@ def handle_create_gcp_vm(say, user, params_dict):
             if "error" in server_status_dict:
                 error_msg = server_status_dict["error"]
                 logger.error(f"GCP instance creation failed: {error_msg}")
-                say(":x: *GCP instance creation failed.*")
+                say(f":x: *GCP instance creation failed.*\n```{error_msg}```")
                 return
 
             servers_created = server_status_dict.get("instances", [])
@@ -550,6 +617,8 @@ def handle_create_gcp_vm(say, user, params_dict):
                             "name": instance.get("name", "unknown"),
                             "instance_id": instance.get("instance_id", "unknown"),
                             "instance_type": instance.get("instance_type", "unknown"),
+                            "zone": instance.get("zone", "unknown"),
+                            "disk_gb": instance.get("disk_gb", "unknown"),
                             "public_ip": instance.get("public_ip", "unknown"),
                         }
                     ]
@@ -558,6 +627,8 @@ def handle_create_gcp_vm(say, user, params_dict):
                     "name",
                     "instance_id",
                     "instance_type",
+                    "zone",
+                    "disk_gb",
                     "public_ip",
                 ]
                 say(":white_check_mark: *Successfully created GCP VM instance!*\n\n")
@@ -568,10 +639,8 @@ def handle_create_gcp_vm(say, user, params_dict):
                     block_message=" Here are the requested VM instances:",
                 )
                 say(
-                    "\n\n"
-                    ":key: *Access Instructions:*\n"
-                    "Use the following command to SSH into your instance (if SSH keys are configured in project metadata or OS Login):\n"
-                    "`ssh <username>@<Public_IP>`\n"
+                    "\n\n:key: *Access Instructions (OS Login):*\n"
+                    f"{GCP_VM_OS_LOGIN_HELP}\n"
                 )
             else:
                 say(":x: *GCP instance creation failed.* No instance returned.")
@@ -748,7 +817,7 @@ def handle_list_gcp_vms(say, user, params_dict):
                 block_message=" Here are the requested VM instances:",
             )
     except Exception as e:
-        logger.error(f"An error occurred listing the EC2 instances: {e}")
+        logger.error(f"An error occurred listing the GCP instances: {e}")
         say("An internal error occurred, please contact administrator.")
 
 

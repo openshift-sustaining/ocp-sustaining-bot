@@ -2,7 +2,7 @@ import logging
 import re
 import traceback
 
-from config import config
+from config import _GCP_DEFAULT_DISK_SIZES, config
 from google.api_core import exceptions as google_exceptions
 from google.cloud import compute_v1
 from google.oauth2 import service_account
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class GCPHelper:
     def __init__(self):
         self.region = getattr(config, "GCP_DEFAULT_REGION", "asia-south1")
-        _info = dict(config["GOOGLE_CLOUD"])
+        _info = dict(config["GOOGLE_CLOUD_CREDS"])
         self._credentials = service_account.Credentials.from_service_account_info(
             _info,
             scopes=["https://www.googleapis.com/auth/cloud-platform"],
@@ -245,6 +245,7 @@ class GCPHelper:
         image_id,
         instance_type,
         instance_name,
+        disk_gb_override=None,
         zone=None,
         network=None,
     ):
@@ -259,13 +260,16 @@ class GCPHelper:
             instance_type: Machine type (e.g. n1-standard-1, e2-medium).
             instance_name: Name for the VM (1–63 chars, lowercase, digits, hyphens;
                 must match [a-z]([-a-z0-9]*[a-z0-9])?).
+            disk_gb_override: Optional boot disk size in GB; must be in
+                ``_GCP_DEFAULT_DISK_SIZES``. If None, uses ``config.GCP_BOOT_DISK_SIZE_GB``.
             zone: Optional zone (e.g. asia-south1-a). Defaults to <region>-a.
             network: Optional network name or URL (e.g. default, or
                 projects/PROJECT/global/networks/VPC). Uses config.GCP_NETWORK
                 if not set, then global/networks/default.
 
         Returns:
-            {"count": 1, "instances": [{"name", "instance_id", "instance_type", "public_ip"}]}
+            {"count": 1, "instances": [{"name", "instance_id", "instance_type", "zone",
+                "disk_gb", "public_ip"}]}
             or on error {"count": 0, "instances": [], "error": "..."}.
         """
         zone = zone or f"{self.region}-a"
@@ -289,6 +293,27 @@ class GCPHelper:
                 "error": "instance_name must start with a letter, use only lowercase letters, digits, and hyphens",
             }
 
+        if disk_gb_override is not None:
+            try:
+                disk_gb = int(disk_gb_override)
+            except (TypeError, ValueError):
+                return {
+                    "count": 0,
+                    "instances": [],
+                    "error": "disk_gb_override must be an integer",
+                }
+            if disk_gb not in _GCP_DEFAULT_DISK_SIZES:
+                return {
+                    "count": 0,
+                    "instances": [],
+                    "error": (
+                        f"disk size must be one of {_GCP_DEFAULT_DISK_SIZES} GB "
+                        "(use --disk-size-gb or GCP_BOOT_DISK_SIZE_GB)"
+                    ),
+                }
+        else:
+            disk_gb = int(config.GCP_BOOT_DISK_SIZE_GB)
+
         try:
             client = compute_v1.InstancesClient(credentials=self._credentials)
 
@@ -298,14 +323,13 @@ class GCPHelper:
             else:
                 source_image = f"projects/debian-cloud/global/images/family/{image_id}"
 
-            disk_size_gb = 10
-            boot_disk = compute_v1.AttachedDisk()
+            attached_disk = compute_v1.AttachedDisk()
             init_params = compute_v1.AttachedDiskInitializeParams()
             init_params.source_image = source_image
-            init_params.disk_size_gb = disk_size_gb
-            boot_disk.initialize_params = init_params
-            boot_disk.auto_delete = True
-            boot_disk.boot = True
+            init_params.disk_size_gb = disk_gb
+            attached_disk.initialize_params = init_params
+            attached_disk.auto_delete = True
+            attached_disk.boot = True
 
             # Network: param overrides instance default (self.network from config)
             network_ref = network if network is not None else self.network
@@ -327,7 +351,7 @@ class GCPHelper:
             instance_resource.machine_type = (
                 f"zones/{zone}/machineTypes/{instance_type}"
             )
-            instance_resource.disks = [boot_disk]
+            instance_resource.disks = [attached_disk]
             instance_resource.network_interfaces = [network_interface]
 
             request = compute_v1.InsertInstanceRequest()
@@ -355,6 +379,8 @@ class GCPHelper:
                 "name": instance_name,
                 "instance_id": str(created.id) if created.id else instance_name,
                 "instance_type": instance_type,
+                "zone": zone,
+                "disk_gb": disk_gb,
                 "public_ip": public_ip,
             }
             logger.info(f"Instance {instance_name} created successfully in {zone}")

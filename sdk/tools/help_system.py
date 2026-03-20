@@ -6,10 +6,11 @@ command handlers to store their help information alongside their implementation.
 """
 
 import logging
+import re
 from functools import wraps
 from typing import Dict, List, Optional, Callable, Any
+
 from config import config
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ def command_meta(
     arguments: Optional[Dict[str, Dict[str, Any]]] = None,
     examples: Optional[List[str]] = None,
     aliases: Optional[List[str]] = None,
+    extra_help: Optional[str] = None,
 ):
     """
     Decorator to attach help metadata to command functions.
@@ -36,6 +38,7 @@ def command_meta(
         arguments: Dictionary with argument names as keys and argument info as values
         examples: List of example usage strings
         aliases: List of alternative command names
+        extra_help: Optional Markdown-ish text appended for `help <command>` (detailed only)
 
     Returns:
         Decorated function with help metadata attached
@@ -47,6 +50,7 @@ def command_meta(
         func._command_arguments = arguments or {}
         func._command_examples = examples or []
         func._command_aliases = aliases or []
+        func._command_extra_help = extra_help or ""
 
         # Register the command
         if name != "help":
@@ -159,6 +163,13 @@ def get_gcp_os_names():
         return ["<error getting OS names>"]
 
 
+def get_gcp_boot_disk_size_choices_gb():
+    """Values allowed for optional ``--disk-size-gb`` (see ``_GCP_DEFAULT_DISK_SIZES`` in config)."""
+    from config import _GCP_DEFAULT_DISK_SIZES
+
+    return [str(n) for n in _GCP_DEFAULT_DISK_SIZES]
+
+
 def get_gcp_instance_states():
     """Get valid GCP Compute Engine instance status values (lowercase, for filtering)."""
     return [
@@ -174,333 +185,14 @@ def get_gcp_instance_states():
 
 
 def get_gcp_instance_types():
-    """Return a complete list of GCP Compute Engine predefined machine types (general-purpose, compute-optimized, memory-optimized)."""
-    return sorted(
-        [
-            # E2 — cost-optimized general-purpose (shared-core + standard/highmem/highcpu)
-            "e2-micro",
-            "e2-small",
-            "e2-medium",
-            "e2-standard-2",
-            "e2-standard-4",
-            "e2-standard-8",
-            "e2-standard-16",
-            "e2-standard-32",
-            "e2-highmem-2",
-            "e2-highmem-4",
-            "e2-highmem-8",
-            "e2-highmem-16",
-            "e2-highcpu-2",
-            "e2-highcpu-4",
-            "e2-highcpu-8",
-            "e2-highcpu-16",
-            "e2-highcpu-32",
-            # N1 — legacy general-purpose (shared-core + standard/highmem/highcpu)
-            "f1-micro",
-            "g1-small",
-            "n1-standard-1",
-            "n1-standard-2",
-            "n1-standard-4",
-            "n1-standard-8",
-            "n1-standard-16",
-            "n1-standard-32",
-            "n1-standard-64",
-            "n1-standard-96",
-            "n1-highmem-2",
-            "n1-highmem-4",
-            "n1-highmem-8",
-            "n1-highmem-16",
-            "n1-highmem-32",
-            "n1-highmem-64",
-            "n1-highmem-96",
-            "n1-highcpu-2",
-            "n1-highcpu-4",
-            "n1-highcpu-8",
-            "n1-highcpu-16",
-            "n1-highcpu-32",
-            "n1-highcpu-64",
-            "n1-highcpu-96",
-            # N2 — Intel general-purpose
-            "n2-standard-2",
-            "n2-standard-4",
-            "n2-standard-8",
-            "n2-standard-16",
-            "n2-standard-32",
-            "n2-standard-64",
-            "n2-standard-80",
-            "n2-standard-128",
-            "n2-highmem-2",
-            "n2-highmem-4",
-            "n2-highmem-8",
-            "n2-highmem-16",
-            "n2-highmem-32",
-            "n2-highmem-64",
-            "n2-highmem-80",
-            "n2-highmem-128",
-            "n2-highcpu-2",
-            "n2-highcpu-4",
-            "n2-highcpu-8",
-            "n2-highcpu-16",
-            "n2-highcpu-32",
-            "n2-highcpu-64",
-            "n2-highcpu-80",
-            "n2-highcpu-128",
-            # N2D — AMD general-purpose
-            "n2d-standard-2",
-            "n2d-standard-4",
-            "n2d-standard-8",
-            "n2d-standard-16",
-            "n2d-standard-32",
-            "n2d-standard-48",
-            "n2d-standard-64",
-            "n2d-standard-80",
-            "n2d-standard-96",
-            "n2d-standard-128",
-            "n2d-standard-224",
-            "n2d-highmem-2",
-            "n2d-highmem-4",
-            "n2d-highmem-8",
-            "n2d-highmem-16",
-            "n2d-highmem-32",
-            "n2d-highmem-48",
-            "n2d-highmem-64",
-            "n2d-highmem-80",
-            "n2d-highmem-96",
-            "n2d-highmem-128",
-            "n2d-highmem-224",
-            "n2d-highcpu-2",
-            "n2d-highcpu-4",
-            "n2d-highcpu-8",
-            "n2d-highcpu-16",
-            "n2d-highcpu-32",
-            "n2d-highcpu-48",
-            "n2d-highcpu-64",
-            "n2d-highcpu-80",
-            "n2d-highcpu-96",
-            "n2d-highcpu-128",
-            "n2d-highcpu-224",
-            # Tau T2D — AMD scale-out
-            "t2d-standard-1",
-            "t2d-standard-2",
-            "t2d-standard-4",
-            "t2d-standard-8",
-            "t2d-standard-16",
-            "t2d-standard-32",
-            "t2d-standard-48",
-            "t2d-standard-60",
-            "t2d-highmem-2",
-            "t2d-highmem-4",
-            "t2d-highmem-8",
-            "t2d-highmem-16",
-            "t2d-highmem-32",
-            "t2d-highmem-48",
-            "t2d-highcpu-2",
-            "t2d-highcpu-4",
-            "t2d-highcpu-8",
-            "t2d-highcpu-16",
-            "t2d-highcpu-32",
-            "t2d-highcpu-48",
-            "t2d-highcpu-60",
-            # Tau T2A — Arm (Ampere)
-            "t2a-standard-1",
-            "t2a-standard-2",
-            "t2a-standard-4",
-            "t2a-standard-8",
-            "t2a-standard-16",
-            "t2a-standard-32",
-            "t2a-standard-48",
-            "t2a-highmem-2",
-            "t2a-highmem-4",
-            "t2a-highmem-8",
-            "t2a-highmem-16",
-            "t2a-highmem-32",
-            "t2a-highmem-48",
-            "t2a-highcpu-2",
-            "t2a-highcpu-4",
-            "t2a-highcpu-8",
-            "t2a-highcpu-16",
-            "t2a-highcpu-32",
-            "t2a-highcpu-48",
-            # C2 — compute-optimized (Intel)
-            "c2-standard-4",
-            "c2-standard-8",
-            "c2-standard-16",
-            "c2-standard-30",
-            "c2-standard-60",
-            # C2D — compute-optimized (AMD)
-            "c2d-standard-2",
-            "c2d-standard-4",
-            "c2d-standard-8",
-            "c2d-standard-16",
-            "c2d-standard-32",
-            "c2d-standard-56",
-            "c2d-standard-112",
-            "c2d-highmem-2",
-            "c2d-highmem-4",
-            "c2d-highmem-8",
-            "c2d-highmem-16",
-            "c2d-highmem-32",
-            "c2d-highmem-56",
-            "c2d-highmem-112",
-            "c2d-highcpu-2",
-            "c2d-highcpu-4",
-            "c2d-highcpu-8",
-            "c2d-highcpu-16",
-            "c2d-highcpu-32",
-            "c2d-highcpu-56",
-            "c2d-highcpu-112",
-            # C3 — compute-optimized (Intel, newer)
-            "c3-standard-4",
-            "c3-standard-8",
-            "c3-standard-22",
-            "c3-standard-44",
-            "c3-standard-88",
-            "c3-standard-176",
-            "c3-highmem-4",
-            "c3-highmem-8",
-            "c3-highmem-22",
-            "c3-highmem-44",
-            "c3-highmem-88",
-            "c3-highmem-176",
-            "c3-highcpu-4",
-            "c3-highcpu-8",
-            "c3-highcpu-22",
-            "c3-highcpu-44",
-            "c3-highcpu-88",
-            "c3-highcpu-176",
-            # C3D — compute-optimized (AMD)
-            "c3d-standard-4",
-            "c3d-standard-8",
-            "c3d-standard-22",
-            "c3d-standard-44",
-            "c3d-standard-88",
-            "c3d-standard-176",
-            "c3d-highmem-4",
-            "c3d-highmem-8",
-            "c3d-highmem-22",
-            "c3d-highmem-44",
-            "c3d-highmem-88",
-            "c3d-highmem-176",
-            "c3d-highmem-360",
-            "c3d-highcpu-4",
-            "c3d-highcpu-8",
-            "c3d-highcpu-22",
-            "c3d-highcpu-44",
-            "c3d-highcpu-88",
-            "c3d-highcpu-176",
-            # N4 — general-purpose 4th gen (Intel)
-            "n4-standard-2",
-            "n4-standard-4",
-            "n4-standard-8",
-            "n4-standard-16",
-            "n4-standard-32",
-            "n4-standard-64",
-            "n4-standard-80",
-            "n4-highmem-2",
-            "n4-highmem-4",
-            "n4-highmem-8",
-            "n4-highmem-16",
-            "n4-highmem-32",
-            "n4-highmem-64",
-            "n4-highmem-80",
-            "n4-highcpu-2",
-            "n4-highcpu-4",
-            "n4-highcpu-8",
-            "n4-highcpu-16",
-            "n4-highcpu-32",
-            "n4-highcpu-64",
-            "n4-highcpu-80",
-            # N4D — general-purpose 4th gen (AMD)
-            "n4d-standard-2",
-            "n4d-standard-4",
-            "n4d-standard-8",
-            "n4d-standard-16",
-            "n4d-standard-32",
-            "n4d-standard-64",
-            "n4d-standard-96",
-            "n4d-highmem-2",
-            "n4d-highmem-4",
-            "n4d-highmem-8",
-            "n4d-highmem-16",
-            "n4d-highmem-32",
-            "n4d-highmem-64",
-            "n4d-highmem-96",
-            "n4d-highcpu-2",
-            "n4d-highcpu-4",
-            "n4d-highcpu-8",
-            "n4d-highcpu-16",
-            "n4d-highcpu-32",
-            "n4d-highcpu-64",
-            "n4d-highcpu-96",
-            # M1 — memory-optimized (legacy)
-            "m1-megamem-96",
-            "m1-ultramem-40",
-            "m1-ultramem-80",
-            "m1-ultramem-160",
-            "m1-highmem-4",
-            "m1-highmem-8",
-            "m1-highmem-16",
-            "m1-highmem-32",
-            "m1-highmem-64",
-            "m1-highmem-96",
-            "m1-highmem-160",
-            # M2 — memory-optimized (large memory)
-            "m2-megamem-416",
-            "m2-ultramem-208",
-            "m2-ultramem-416",
-            "m2-highmem-416",
-            # M3 — memory-optimized
-            "m3-standard-8",
-            "m3-standard-16",
-            "m3-standard-32",
-            "m3-standard-64",
-            "m3-standard-128",
-            "m3-highmem-8",
-            "m3-highmem-16",
-            "m3-highmem-32",
-            "m3-highmem-64",
-            "m3-highmem-128",
-            "m3-megamem-64",
-            "m3-megamem-128",
-            "m3-ultramem-32",
-            "m3-ultramem-64",
-            "m3-ultramem-128",
-            # M4 — memory-optimized (newer)
-            "m4-standard-8",
-            "m4-standard-16",
-            "m4-standard-32",
-            "m4-standard-64",
-            "m4-standard-96",
-            "m4-standard-128",
-            "m4-standard-192",
-            "m4-standard-224",
-            "m4-highmem-8",
-            "m4-highmem-16",
-            "m4-highmem-32",
-            "m4-highmem-64",
-            "m4-highmem-96",
-            "m4-highmem-128",
-            "m4-highmem-192",
-            "m4-highmem-224",
-            "m4-megamem-16",
-            "m4-megamem-32",
-            "m4-megamem-64",
-            "m4-megamem-96",
-            "m4-megamem-128",
-            "m4-megamem-192",
-            "m4-megamem-224",
-            "m4-ultramem-32",
-            "m4-ultramem-64",
-            "m4-ultramem-96",
-            "m4-ultramem-128",
-            "m4-ultramem-192",
-            "m4-ultramem-224",
-            # H3 — compute-optimized HPC
-            "h3-standard-88",
-            # H4D — compute-optimized HPC (AMD)
-            "h4d-standard-192",
-        ]
-    )
+    """
+    GCP machine types for help text and command choices.
+
+    Values come from ``config.GCP_POPULAR_INSTANCE_TYPES`` (see ``.env`` key
+    ``GCP_POPULAR_INSTANCE_TYPES``); set in ``config.py`` with fallback to
+    ``gcp_popular_instance_types``.
+    """
+    return list(config.GCP_POPULAR_INSTANCE_TYPES)
 
 
 def get_aws_instance_states():
@@ -598,6 +290,11 @@ def format_command_help(command_name: str, detailed: bool = False) -> str:
     # Add aliases
     if aliases:
         help_text.append(f"*Aliases:* {', '.join(aliases)}")
+        help_text.append("")
+
+    extra_help_text = getattr(func, "_command_extra_help", "") or ""
+    if detailed and extra_help_text.strip():
+        help_text.append(extra_help_text.strip())
         help_text.append("")
 
     return "\n".join(help_text).strip()
@@ -731,6 +428,7 @@ def register_command(name: str, handler: Callable, meta: Dict[str, Any]):
     handler._command_arguments = meta.get("arguments", {})
     handler._command_examples = meta.get("examples", [])
     handler._command_aliases = meta.get("aliases", [])
+    handler._command_extra_help = meta.get("extra_help") or ""
 
     # Register the command
     COMMAND_REGISTRY[name] = handler
