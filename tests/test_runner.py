@@ -9,6 +9,13 @@ sys.modules["gspread"] = Mock()
 # fmt: off
 from config import config  # noqa
 config.ALLOWED_SLACK_USERS = {"test_user": "U123456"}
+config.GCP_POPULAR_INSTANCE_TYPES = [
+    "e2-micro",
+    "e2-medium",
+    "n2-standard-4",
+]
+config.GCP_BOOT_DISK_SIZE_GB = 10
+config.GCP_DEFAULT_INSTANCE_TYPE = "e2-medium"
 # fmt: on
 
 
