@@ -20,6 +20,7 @@ required_keys = [
     "ROTA_USERS",
     "ROTA_ADMINS",
     "LOCK_DIR",
+    "LOCK_TIMEOUT",
     "TIMEZONE",
 ]
 
