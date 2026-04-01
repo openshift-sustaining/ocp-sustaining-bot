@@ -3,6 +3,7 @@ Smartsheet sync functions - fetch releases and write to Google Sheets
 Fetches from Smartsheet → Parses → Filters → Writes to Google Sheets (daily 8 AM)
 """
 
+import json
 import os
 import re
 from datetime import datetime, timedelta
@@ -33,17 +34,16 @@ def extract_version(version_str):
     return matches[0] if matches else None
 
 
-def shift_from_weekend(date, offset_days):
-    """Takes a date and adds/subtracts days"""
-    shifted_date = date + timedelta(days=offset_days)
-    weekday = shifted_date.weekday()
+def get_previous_weekId(date):
+    """Get the previous Monday of a given date. If date is already Monday, return it unchanged."""
+    weekday = date.weekday()  # 0=Monday, 1=Tuesday, ..., 6=Sunday
 
-    if weekday == 5:
-        shifted_date = shifted_date + timedelta(days=2)
-    elif weekday == 6:
-        shifted_date = shifted_date + timedelta(days=1)
-
-    return shifted_date
+    if weekday == 0:  # Already Monday
+        return date
+    else:
+        # Go back to the previous Monday
+        days_back = weekday
+        return date - timedelta(days=days_back)
 
 
 def get_release_filter_date_range():
@@ -178,10 +178,16 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
     """
 
     try:
-        # this can read dict/DynaBox object → convert directly (No .strip() call to avoid JSONDecodeError from gspread's service_account_from_dict)
-        creds_dict = (
-            dict(gsheet_creds) if not isinstance(gsheet_creds, dict) else gsheet_creds
-        )
+        # Parse credentials: handle string JSON, dict, or DynaBox object
+        if isinstance(gsheet_creds, str):
+            creds_dict = json.loads(gsheet_creds)
+        else:
+            creds_dict = (
+                dict(gsheet_creds)
+                if not isinstance(gsheet_creds, dict)
+                else gsheet_creds
+            )
+
         client = gspread.service_account_from_dict(creds_dict)
 
         spreadsheet = client.open(config.ROTA_SHEET)
@@ -223,17 +229,22 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
     fetched_releases = {}
     for rel in sorted(filtered_releases, key=lambda x: x["finish_date"]):
         finish_date = rel["finish_date"]
-        start_date = shift_from_weekend(finish_date, -2)
-        end_date = shift_from_weekend(finish_date, 2)
+        start_date = finish_date  # Use fetched date directly
+        end_date = start_date + timedelta(days=8)  # Add 8 days to start_date
+        err_date = get_previous_weekId(
+            start_date
+        )  # Get previous Monday, or keep if already Monday
 
         fetched_releases[rel["version"]] = {
             "start_date": str(start_date),
             "end_date": str(end_date),
+            "err_date": str(err_date),
         }
 
     # Track updates and inserts
     updates = []  # List of [range, values]
-    new_releases = []  # List of [version, start_date, end_date]
+    new_releases = []  # List of [version, start_date, end_date] only
+    new_releases_err = {}  # Map of version to err_date for later update
     rows_modified = 0
 
     # Update existing releases with new dates (preserve D-G)
@@ -242,23 +253,42 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
             row_idx = existing_releases[version]
             row_num = row_idx + 1  # Convert to 1-based sheet row number
 
-            # Update only columns B and C (start_date and end_date)
+            # Update columns B, C, and G (start_date, end_date, and ERR)
             updates.append(
                 (f"B{row_num}:C{row_num}", [[dates["start_date"], dates["end_date"]]])
             )
+            # Update column G with err_date (previous Monday or same if already Monday)
+            updates.append((f"G{row_num}", [[dates["err_date"]]]))
             rows_modified += 1
         else:
-            # New release - will be added later
+            # New release - only append A, B, C (don't write to D-G yet)
             new_releases.append([version, dates["start_date"], dates["end_date"]])
+            new_releases_err[version] = dates["err_date"]
 
     # Apply date updates for existing releases
     if updates:
         for range_name, values in updates:
             worksheet.update(values=values, range_name=range_name)
 
-    # Add new releases to the end
+    # Add new releases to the end (only columns A-C)
     if new_releases:
         worksheet.append_rows(new_releases)
         rows_modified += len(new_releases)
+
+        # Now update column G with err_date for newly added rows
+        # Get the starting row number for the new releases
+        all_values_after = worksheet.get_all_values()
+        start_row = (
+            len(all_values_after) - len(new_releases) + 1
+        )  # +1 for 1-based indexing
+
+        for idx, (version, err_date) in enumerate(new_releases_err.items()):
+            row_num = start_row + idx
+            updates.append((f"G{row_num}", [[err_date]]))
+
+        # Apply G column updates
+        if updates:
+            for range_name, values in updates:
+                worksheet.update(values=values, range_name=range_name)
 
     return rows_modified
