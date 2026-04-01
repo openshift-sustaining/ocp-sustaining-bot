@@ -6,10 +6,11 @@ command handlers to store their help information alongside their implementation.
 """
 
 import logging
+import re
 from functools import wraps
 from typing import Dict, List, Optional, Callable, Any
+
 from config import config
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ def command_meta(
     arguments: Optional[Dict[str, Dict[str, Any]]] = None,
     examples: Optional[List[str]] = None,
     aliases: Optional[List[str]] = None,
+    extra_help: Optional[str] = None,
 ):
     """
     Decorator to attach help metadata to command functions.
@@ -36,6 +38,7 @@ def command_meta(
         arguments: Dictionary with argument names as keys and argument info as values
         examples: List of example usage strings
         aliases: List of alternative command names
+        extra_help: Optional Markdown-ish text appended for `help <command>` (detailed only)
 
     Returns:
         Decorated function with help metadata attached
@@ -47,6 +50,7 @@ def command_meta(
         func._command_arguments = arguments or {}
         func._command_examples = examples or []
         func._command_aliases = aliases or []
+        func._command_extra_help = extra_help or ""
 
         # Register the command
         if name != "help":
@@ -140,6 +144,55 @@ def get_openstack_flavors():
         "i3.large",
         "i3.xlarge",
     ]
+
+
+def get_gcp_os_names():
+    """Get available GCP OS/image names from config."""
+    try:
+        gcp_image_map = getattr(
+            config,
+            "GCP_IMAGE_MAP",
+            {
+                "debian-12": "projects/debian-cloud/global/images/family/debian-12",
+                "linux": "projects/debian-cloud/global/images/family/debian-12",
+            },
+        )
+        return list(gcp_image_map.keys())
+    except Exception as e:
+        logger.error(f"Error getting GCP OS names: {e}")
+        return ["<error getting OS names>"]
+
+
+def get_gcp_boot_disk_size_choices_gb():
+    """Values allowed for optional ``--disk-size-gb`` (see ``_GCP_DEFAULT_DISK_SIZES`` in config)."""
+    from config import _GCP_DEFAULT_DISK_SIZES
+
+    return [str(n) for n in _GCP_DEFAULT_DISK_SIZES]
+
+
+def get_gcp_instance_states():
+    """Get valid GCP Compute Engine instance status values (lowercase, for filtering)."""
+    return [
+        "provisioning",  # Allocating resources
+        "staging",  # Preparing for first boot
+        "running",  # Booting or actively running
+        "stopping",  # Shutting down
+        "suspending",  # Being suspended
+        "suspended",  # Suspended
+        "repairing",  # Under repair
+        "terminated",  # Stopped or deleted
+    ]
+
+
+def get_gcp_instance_types():
+    """
+    GCP machine types for help text and command choices.
+
+    Values come from ``config.GCP_POPULAR_INSTANCE_TYPES`` (see ``.env`` key
+    ``GCP_POPULAR_INSTANCE_TYPES``); set in ``config.py`` with fallback to
+    ``gcp_popular_instance_types``.
+    """
+    return list(config.GCP_POPULAR_INSTANCE_TYPES)
 
 
 def get_aws_instance_states():
@@ -237,6 +290,11 @@ def format_command_help(command_name: str, detailed: bool = False) -> str:
     # Add aliases
     if aliases:
         help_text.append(f"*Aliases:* {', '.join(aliases)}")
+        help_text.append("")
+
+    extra_help_text = getattr(func, "_command_extra_help", "") or ""
+    if detailed and extra_help_text.strip():
+        help_text.append(extra_help_text.strip())
         help_text.append("")
 
     return "\n".join(help_text).strip()
@@ -370,6 +428,7 @@ def register_command(name: str, handler: Callable, meta: Dict[str, Any]):
     handler._command_arguments = meta.get("arguments", {})
     handler._command_examples = meta.get("examples", [])
     handler._command_aliases = meta.get("aliases", [])
+    handler._command_extra_help = meta.get("extra_help") or ""
 
     # Register the command
     COMMAND_REGISTRY[name] = handler
