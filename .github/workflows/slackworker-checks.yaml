@@ -1,0 +1,87 @@
+name: SlackWorker Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'slack_worker/**'
+      - '.github/workflows/slackworker-checks.yaml'
+
+jobs:
+  lint:
+    name: code linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      
+      - name: Install Ruff
+        run: |
+          pip install ruff
+
+      - name: Run Ruff Linter on slack_worker
+        run: |
+          # Check for linting issues in slack_worker
+          ruff check slack_worker/ --output-format=github
+          # Fail if any formatting issue is found
+          ruff format --check slack_worker/
+
+  check-env-files:
+    name: Check for .env and Secrets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Search for .env Files
+        run: |
+          if find slack_worker/ -type f -name "*.env" | grep .env; then
+            echo "❌ .env file detected in slack_worker. Failing the build."
+            exit 1
+          else
+            echo "✅ No .env files detected in slack_worker."
+          fi
+
+  tests:
+    name: SlackWorker Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed
+        run: |
+          echo "CHANGED=$(git diff --name-only origin/${{ github.base_ref }} | tr '\n' ' ')" >> $GITHUB_ENV
+
+      - name: Setup python requirements
+        if: contains(env.CHANGED, 'slack_worker/')
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r slack_worker/requirements.txt
+
+      - name: Test SlackWorker Jobs
+        if: contains(env.CHANGED, 'slack_worker/jobs/')
+        run: |
+          python -m pytest slack_worker/tests/ -v
+
+      - name: Test SlackWorker Config
+        if: contains(env.CHANGED, 'slack_worker/config.py')
+        run: |
+          python -m pytest slack_worker/tests/ -v
+
+      - name: Test SlackWorker Scheduler
+        if: contains(env.CHANGED, 'slack_worker/scheduler.py')
+        run: |
+          python -m pytest slack_worker/tests/ -v
+
+      - name: Run all SlackWorker tests
+        if: contains(env.CHANGED, 'slack_worker/')
+        run: |
+          python -m pytest slack_worker/tests/ -v --tb=short
