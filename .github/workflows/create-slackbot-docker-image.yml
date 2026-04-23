@@ -111,7 +111,7 @@ jobs:
         echo "Using Trivy exit code: $EXIT_CODE"
     
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest image \
+          aquasec/trivy:0.69.3 image \
           --severity CRITICAL \
           --format table \
           --exit-code $EXIT_CODE \
