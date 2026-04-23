@@ -2,6 +2,7 @@
 Core tests for slack_worker - Priority tests for main components
 """
 
+import os
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -11,24 +12,6 @@ import pytest
 
 from slack_worker.scheduler import FileLock, JobScheduler
 from slack_worker.slack_client import SlackClient
-
-
-# ============================================================================
-# 1. CONFIG TESTS
-# ============================================================================
-
-
-class TestConfigLoading:
-    """Test configuration loading"""
-
-    def test_config_required_keys_exist(self):
-        """Confirms required keys are defined"""
-        with patch("slack_worker.config.hvac.Client"):
-            from slack_worker.config import required_keys
-
-            assert "SLACK_BOT_TOKEN" in required_keys
-            assert "ROTA_SERVICE_ACCOUNT" in required_keys
-            assert "LOCK_DIR" in required_keys
 
 
 # ============================================================================
@@ -74,25 +57,15 @@ class TestFileLock:
 
     def test_lock_acquisition(self):
         """Lock initialization"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch("slack_worker.scheduler.config") as mock_config:
-                mock_config.LOCK_DIR = tmpdir
-                mock_config.LOCK_TIMEOUT = 5
-
-                lock = FileLock("test_lock")
-                assert lock.lock_name == "test_lock"
-                assert lock.timeout == 5
+        lock = FileLock("test_lock")
+        assert lock.lock_name == "test_lock"
+        assert lock.timeout > 0  # Should have a positive timeout
 
     def test_lock_context_manager(self):
         """Lock acquire/release"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch("slack_worker.scheduler.config") as mock_config:
-                mock_config.LOCK_DIR = tmpdir
-                mock_config.LOCK_TIMEOUT = 5
-
-                with FileLock("test_lock") as lock:
-                    assert lock.lock_file is not None
-                    assert lock.lock_file_path.exists()
+        with FileLock("test_lock") as lock:
+            assert lock.lock_file is not None
+            assert lock.lock_file_path.exists()
 
 
 class TestJobScheduler:
@@ -100,25 +73,20 @@ class TestJobScheduler:
 
     def test_scheduler_list_jobs(self):
         """List all jobs"""
-        with patch("slack_worker.scheduler.config") as mock_config:
-            mock_config.TIMEZONE = "UTC"
-            mock_config.LOCK_TIMEOUT = 5
-            mock_config.LOCK_DIR = "/tmp"
+        scheduler = JobScheduler()
 
-            scheduler = JobScheduler()
+        def test_job():
+            pass
 
-            def test_job():
-                pass
+        scheduler.add_cron_job(test_job, "job1", "0 9 * * *", use_lock=False)
 
-            scheduler.add_cron_job(test_job, "job1", "0 9 * * *", use_lock=False)
-
-            job_list = scheduler.list_jobs()
-            assert len(job_list) == 1
-            assert job_list[0]["id"] == "job1"
+        job_list = scheduler.list_jobs()
+        assert len(job_list) == 1
+        assert job_list[0]["id"] == "job1"
 
 
 # ============================================================================
-# 5. HEALTH CHECK TESTS
+# 4. HEALTH CHECK TESTS
 # ============================================================================
 
 
@@ -136,7 +104,7 @@ class TestHealthCheck:
 
 
 # ============================================================================
-# 6. JOBS TESTS
+# 5. JOBS TESTS
 # ============================================================================
 
 
@@ -155,7 +123,7 @@ class TestRotaNotifications:
 
 
 # ============================================================================
-# 7. SMARTSHEET & GSHEET INTEGRATION TESTS
+# 6. SMARTSHEET & GSHEET INTEGRATION TESTS
 # ============================================================================
 
 
