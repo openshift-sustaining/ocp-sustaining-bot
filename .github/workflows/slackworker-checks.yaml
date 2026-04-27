@@ -1,0 +1,65 @@
+name: SlackWorker Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'slack_worker/**'
+      - '.github/workflows/slackworker-checks.yaml'
+
+jobs:
+  lint:
+    name: code linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff Linter on slack_worker
+        run: |
+          ruff check slack_worker/ --output-format=github
+          ruff format --check slack_worker/
+
+  check-env-files:
+    name: Check for .env and Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Search for .env Files
+        run: |
+          if find slack_worker/ -type f -name "*.env" | grep .env; then
+            echo "❌ .env file detected in slack_worker. Failing the build."
+            exit 1
+          else
+            echo "✅ No .env files detected in slack_worker."
+          fi
+
+  tests:
+    name: SlackWorker Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r slack_worker/requirements.txt
+
+      - name: Run SlackWorker Tests
+        run: |
+          python -m pytest slack_worker/tests/ -v --tb=short

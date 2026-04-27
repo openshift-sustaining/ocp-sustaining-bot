@@ -1,0 +1,134 @@
+name: Create Docker Image for Slackworker
+on:
+  workflow_dispatch:
+    inputs:
+      quay_registry_username:
+        description: 'Username'
+        required: true
+      quay_registry_password:
+        description: 'Password'
+        required: true
+      tag_major_version:
+        description: 'Major Version'
+        required: true
+        default: "1"
+      tag_minor_version:
+        description: 'Minor Version'
+        required: true
+        default: "1"
+      push_when_critical_errors_in_scan:
+        description: 'Push when Critical Errors in Scan'
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+permissions:
+  contents: read
+  security-events: write          
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: "quay.io/ocp_sustaining_engineering/slack_worker"
+      TAG_PATCH_VERSION: 0
+      SLACKWORKER_IMAGE_REPO_URL: "https://quay.io/api/v1/repository/ocp_sustaining_engineering/slack_worker/tag/"
+    steps:
+    - name: Validate inputs
+      run: |
+        if ! [[ "${{ inputs.tag_major_version }}" =~ ^[0-9]+$ ]]; then
+          echo "Major version must be numeric"
+          exit 1
+        fi
+        if ! [[ "${{ inputs.tag_minor_version }}" =~ ^[0-9]+$ ]]; then
+          echo "Minor version must be numeric"
+          exit 1
+        fi
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Get Next Tag Version
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_on: error
+        command: |
+          PAGE=1
+          LIMIT=50
+          HAS_MORE=true
+          ALL_TAGS='[]'
+          FILTER_PARAMS="&onlyActiveTags=1&filter_tag_name=like:${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}."
+          while [ "$HAS_MORE" = true ]; do
+            echo "Fetching page $PAGE..."
+            PAGE_AND_LIMIT_PARAMS="?limit=$LIMIT&page=$PAGE"
+            if ! JSON_RESPONSE=$(curl -s -f --max-time 300 "$SLACKWORKER_IMAGE_REPO_URL$PAGE_AND_LIMIT_PARAMS$FILTER_PARAMS"); then
+              echo "Failed to fetch tags from API"
+              exit 1
+            fi
+            TAGS=$(echo "$JSON_RESPONSE" | jq '.tags')
+            ALL_TAGS=$(jq -s 'add' <(echo "$ALL_TAGS") <(echo "$TAGS"))
+            HAS_MORE=$(echo "$JSON_RESPONSE" | jq '.has_additional')
+            PAGE=$((PAGE + 1))
+          done
+          COUNT_EXISTING=$(echo "$ALL_TAGS" | jq '. | length')
+          if [ "$COUNT_EXISTING" -eq 0 ]; then
+            NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${{ env.TAG_PATCH_VERSION }}"
+          else
+            MAX_VER=$(echo "$ALL_TAGS" | jq -r '.[].name'| sort -V | tail -n1)
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$MAX_VER"
+            NEW_PATCH=$((PATCH + 1))
+            NEXT_TAG_VERSION="${{ inputs.tag_major_version }}.${{ inputs.tag_minor_version }}.${NEW_PATCH}"
+          fi
+          echo "NEXT_TAG_VERSION=$NEXT_TAG_VERSION" >> $GITHUB_ENV
+          echo "Computed image version: $NEXT_TAG_VERSION"
+    - name: Login to Quay.io
+      id: login
+      run: |
+        set -e
+        QUAY_PASSWORD=$(jq -r '.inputs.quay_registry_password' $GITHUB_EVENT_PATH)
+        echo ::add-mask::$QUAY_PASSWORD
+        QUAY_USERNAME=$(jq -r '.inputs.quay_registry_username' $GITHUB_EVENT_PATH)
+        echo ::add-mask::$QUAY_USERNAME
+        echo ":closed_lock_with_key: Logging in to quay.io..."
+        echo "$QUAY_PASSWORD" | docker login quay.io -u "$QUAY_USERNAME" --password-stdin
+    - name: Build Docker image locally
+      uses: docker/build-push-action@v5
+      with:
+        context: slack_worker
+        push: false
+        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+        load: true
+      timeout-minutes: 30
+    - name: Trivy scan gating
+      run: |
+        if [ "$PUSH_ON_CRITICAL" == "true" ]; then
+          EXIT_CODE=0
+        else
+          EXIT_CODE=1
+        fi
+    
+        echo "Using Trivy exit code: $EXIT_CODE"
+    
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:0.69.3 image \
+          --severity CRITICAL \
+          --format table \
+          --exit-code $EXIT_CODE \
+          ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+      env:
+        PUSH_ON_CRITICAL: ${{ inputs.push_when_critical_errors_in_scan }}
+
+    - name: Push Docker image to Quay
+      uses: docker/build-push-action@v5
+      with:
+        context: slack_worker
+        push: true
+        tags: ${{ env.IMAGE_NAME }}:${{ env.NEXT_TAG_VERSION }}
+
+    - name: Clean up
+      if: ${{ always() }}
+      run: |
+        echo ":wastebasket: Removing temporary file etc"
+        rm -f /home/runner/.docker/config.json
+        docker logout quay.io || true
