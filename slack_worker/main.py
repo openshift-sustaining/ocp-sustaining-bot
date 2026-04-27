@@ -12,7 +12,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from slack_worker.config import config
 from slack_worker.jobs import (
-    send_rota_notifications,
+    send_group_reminder,
+    send_dm_reminders,
     sync_releases_to_gsheet,
 )
 from slack_worker.scheduler import JobScheduler
@@ -41,19 +42,33 @@ def setup_jobs(scheduler: JobScheduler):
     else:
         logger.info("Disabled: Sync releases job (empty schedule)")
 
-    # 2. Notifications job (runs second - after sync)
-    if config.SCHEDULE_ROTA_NOTIFICATIONS:
+    # 2. Group channel notifications job
+    if config.SCHEDULE_ROTA_NOTIFICATIONS_GROUP_CHANNEL:
         scheduler.add_cron_job(
-            func=send_rota_notifications,
-            job_id="send_rota_notifications",
-            cron_expression=config.SCHEDULE_ROTA_NOTIFICATIONS,
+            func=send_group_reminder,
+            job_id="send_rota_notifications_group_channel",
+            cron_expression=config.SCHEDULE_ROTA_NOTIFICATIONS_GROUP_CHANNEL,
             use_lock=True,
         )
         logger.info(
-            f"Enabled: ROTA notifications job ({config.SCHEDULE_ROTA_NOTIFICATIONS})"
+            f"Enabled: ROTA group channel notifications job ({config.SCHEDULE_ROTA_NOTIFICATIONS_GROUP_CHANNEL})"
         )
     else:
-        logger.info("Disabled: ROTA notifications job (empty schedule)")
+        logger.info("Disabled: ROTA group channel notifications job (empty schedule)")
+
+    # 3. DM notifications job
+    if config.SCHEDULE_ROTA_NOTIFICATIONS_DMS:
+        scheduler.add_cron_job(
+            func=send_dm_reminders,
+            job_id="send_rota_notifications_dms",
+            cron_expression=config.SCHEDULE_ROTA_NOTIFICATIONS_DMS,
+            use_lock=True,
+        )
+        logger.info(
+            f"Enabled: ROTA DM notifications job ({config.SCHEDULE_ROTA_NOTIFICATIONS_DMS})"
+        )
+    else:
+        logger.info("Disabled: ROTA DM notifications job (empty schedule)")
 
     logger.info(
         f"Job setup complete. Total jobs scheduled: {len(scheduler.scheduler.get_jobs())}"

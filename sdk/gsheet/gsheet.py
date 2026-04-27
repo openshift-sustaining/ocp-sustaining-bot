@@ -23,8 +23,8 @@ class GSheet:
         s_date: date = None,
         e_date: date = None,
         pm: str = None,
-        qe1: str = None,
-        qe2: str = None,
+        qe: str = None,
+        notify_date: str = None,
     ) -> None:
         passed_args = {**locals()}
         release_regex = re.compile(r"^\d\.\d{1,3}\.\d{1,3}$")
@@ -34,7 +34,7 @@ class GSheet:
                 f"{rel_ver} does not seem to match the expected format `\\d\\.\\d{1, 3}\\.\\d{1, 3}`"
             )
 
-        row_to_append = [rel_ver, s_date, e_date, pm, qe1, qe2]
+        row_to_append = [rel_ver, s_date, e_date, pm, qe, notify_date]
 
         if not row_to_append:
             logging.error(f"No row to be updated: {passed_args}")
@@ -66,7 +66,7 @@ class GSheet:
         """Get releases for a specific Monday date
 
         Args:
-            target_monday: The Monday date to filter by (from column G - ERR)
+            target_monday: The Monday date to filter by (from column F - ERR)
 
         Returns:
             List of release rows matching the target Monday
@@ -74,8 +74,8 @@ class GSheet:
         values = self._assignment_wsheet.get_values("A:G")  # only get relevant columns
         target_monday_str = str(target_monday)
 
-        # Filter releases where column G (ERR) matches the target Monday date
-        return [v for v in values if len(v) > 6 and v[6] == target_monday_str]
+        # Filter releases where column F (ERR) matches the target Monday date
+        return [v for v in values if len(v) > 5 and v[5] == target_monday_str]
 
     def replace_user_for_release(
         self, rel_ver: str, column: str, user: str = None
@@ -88,11 +88,11 @@ class GSheet:
                 f"{rel_ver} does not seem to match the expected format `\\d\\.\\d{1, 3}\\.\\d{1, 3}`"
             )
 
-        if column not in ("pm", "qe1", "qe2"):
+        if column not in ("pm", "qe"):
             logger.error(f"Invalid value for replace column: {column}")
             raise ValueError(f"Invalid value for replace column: {column}")
 
-        column_letter_mapping = {"pm": "D", "qe1": "E", "qe2": "F"}
+        column_letter_mapping = {"pm": "D", "qe": "E"}
 
         column_a1 = column_letter_mapping[column]
 

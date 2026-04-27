@@ -1166,19 +1166,14 @@ def handle_list_team_links(say, user):
             "required": False,
             "type": "str",
         },
-        "qe1": {
-            "description": "Primary QE engineer username",
-            "required": False,
-            "type": "str",
-        },
-        "qe2": {
-            "description": "Secondary QE engineer username",
+        "qe": {
+            "description": "QE engineer username",
             "required": False,
             "type": "str",
         },
     },
     examples=[
-        "rota --add --release=4.15.1 [--start=2024-01-08 --end=2024-01-12 --pm=john.doe --qe1=jane.smith --qe2=bob.wilson]",
+        "rota --add --release=4.15.1 [--start=2024-01-08 --end=2024-01-12 --pm=john.doe --qe=jane.smith --notify_date=2024-01-08]",
         "rota --check --time='This Week'",
         "rota --check --release=4.15.1"
         "rota --replace --release=4.15.1 --column=new_pm [--user=new_person]",
@@ -1231,8 +1226,8 @@ def handle_rota(say, user, params_dict):
                 s_date=start,
                 e_date=end,
                 pm=_get_name_from_userid(params_dict.get("pm")),
-                qe1=_get_name_from_userid(params_dict.get("qe1")),
-                qe2=_get_name_from_userid(params_dict.get("qe2")),
+                qe=_get_name_from_userid(params_dict.get("qe")),
+                notify_date=params_dict.get("notify_date"),
             )
         except ValueError as e:
             say(str(e))
@@ -1257,11 +1252,10 @@ def handle_rota(say, user, params_dict):
                 return
 
         elif time_period:
-            try:
-                data = gsheet.fetch_data_by_time(time_period)
-            except ValueError:
-                say("Time period should either be `This Week` or `Next Week`.")
-                return
+            say(
+                "Time-based queries will be supported in a future update. Please use `release` parameter for now."
+            )
+            return
 
         else:
             say("Please provide either `release` or `time`.")
@@ -1316,18 +1310,15 @@ def _helper_format_rota_output(data: list) -> str:
         logger.error(f"Cannot format ROTA data: {data}")
         return "Some error occurred parsing the data."
 
-    rel_ver, s_date, e_date, pm, qe1, qe2, activity = data
+    rel_ver, s_date, e_date, pm, qe, notify_date, activity = data
 
     if rel_ver == "N/A":
         return ""
 
     pm = _get_userid_from_name(pm)
-    qe1 = _get_userid_from_name(qe1)
-    qe2 = _get_userid_from_name(qe2)
+    qe = _get_userid_from_name(qe)
 
-    return (
-        f"*Release:* {rel_ver}\n" + f"*Patch Manager:* {pm}\n" + f"*QE:* {qe1}, {qe2}"
-    )
+    return f"*Release:* {rel_ver}\n" + f"*Patch Manager:* {pm}\n" + f"*QE:* {qe}"
 
 
 def _get_userid_from_name(name: str) -> str:
