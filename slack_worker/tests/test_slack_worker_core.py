@@ -5,8 +5,6 @@ Core tests for slack_worker - Validates health_check.py checks
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from slack_worker.config import config
 from slack_worker.scheduler import JobScheduler
 
