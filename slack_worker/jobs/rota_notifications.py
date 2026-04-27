@@ -38,12 +38,14 @@ def get_next_available_monday(assignment_wsheet) -> date:
         or next week's Monday if no releases are found
     """
     this_week_monday = get_this_week_monday()
-    values = assignment_wsheet.get_values("G:G")  # Get all column G values (ERR dates)
+    values = assignment_wsheet.get_values(
+        "F:F"
+    )  # Get all column F values (notify_date)
 
     if not values:
         return this_week_monday + timedelta(days=7)
 
-    # Collect all Monday dates in column G, filter for dates after this week
+    # Collect all Monday dates in column F, filter for dates after this week
     future_mondays = set()
     for row in values[1:]:  # Skip header
         if row and len(row) > 0 and row[0]:
@@ -80,8 +82,8 @@ def _parse_releases_from_rows(data: List[List]) -> List[Dict]:
                 "start_date": row[1],
                 "end_date": row[2],
                 "pm": row[3],
-                "qe1": row[4],
-                "qe2": row[5],
+                "qe": row[4],
+                "notify_date": row[5],
             }
             releases.append(release)
             logger.debug(f"    • Parsed release: {row[0]}")
@@ -193,22 +195,18 @@ def format_release_message(releases: List[Dict], week_label: str = "This Week") 
 
     for release in releases:
         pm = release.get("pm", "TBD")
-        qe1 = release.get("qe1", "TBD")
-        qe2 = release.get("qe2", "TBD")
-        logger.debug(
-            f"  • Formatting {release['version']}: PM={pm}, QE1={qe1}, QE2={qe2}"
-        )
+        qe = release.get("qe", "TBD")
+        logger.debug(f"  • Formatting {release['version']}: PM={pm}, QE={qe}")
 
         pm_mention = get_user_mention(pm)
-        qe1_mention = get_user_mention(qe1)
-        qe2_mention = get_user_mention(qe2)
+        qe_mention = get_user_mention(qe)
 
         message_text = (
             f"*Release:* `{release['version']}`\n"
             f":calendar: *Development Cut-off:* {release['start_date']}\n"
             f":calendar: *Fast-Channel:* {release['end_date']}\n"
             f"*Patch Manager:* {pm_mention}\n"
-            f"*QE:* {qe1_mention}, {qe2_mention}\n"
+            f"*QE:* {qe_mention}\n"
         )
 
         if "This Week" in week_label:
@@ -223,10 +221,7 @@ def format_release_message(releases: List[Dict], week_label: str = "This Week") 
 def send_group_reminder():
     """
     Send group reminder about the week's releases
-    Posted every Monday and Thursday at 9 AM
-
-    Monday 9 AM: Current week + Next week (if found)
-    Thursday 9 AM: Same current week releases (reminder)
+    Scheduled via SCHEDULE_ROTA_NOTIFICATIONS_GROUP_CHANNEL env var
     """
     logger.info("Step 4a: Sending group reminder to Slack channel")
 
@@ -235,6 +230,7 @@ def send_group_reminder():
         day_of_week = today.weekday()  # 0 = Monday, 3 = Thursday
         logger.debug(f"  - Current day: {today} (day_of_week={day_of_week})")
 
+        # Determine if it's Monday or Thursday and fetch appropriate releases
         if day_of_week == 0:  # Monday
             logger.debug(
                 "  - Monday detected: fetching current week and next week releases"
@@ -268,7 +264,7 @@ def send_group_reminder():
 
             message = "\n".join(message_parts)
 
-        elif day_of_week == 3:  # Thursday
+        else:  # Thursday (or other configured days)
             logger.debug(
                 "  - Thursday detected: fetching current week releases (reminder)"
             )
@@ -288,11 +284,6 @@ def send_group_reminder():
                 message_parts.append("No releases scheduled for this week.")
 
             message = "\n".join(message_parts)
-        else:
-            logger.warning(
-                f"  ✗ Group reminder triggered on unexpected day: {day_of_week}"
-            )
-            return
 
         if config.ROTA_GROUP_CHANNEL:
             logger.debug(f"  - Sending message to channel: {config.ROTA_GROUP_CHANNEL}")
@@ -317,9 +308,7 @@ def send_group_reminder():
 def send_dm_reminders():
     """
     Send DM reminders to individuals about their releases
-
-    Monday 9 AM: DMs for current week releases
-    Friday 9 AM: DMs for next week releases only (if they exist)
+    Scheduled via SCHEDULE_ROTA_NOTIFICATIONS_DMS env var
     """
     logger.info("Step 4b: Sending DM reminders to individuals")
 
@@ -332,17 +321,10 @@ def send_dm_reminders():
             logger.debug("  - Monday detected: fetching current week releases for DM")
             releases = get_current_week_releases()
             week_label = "this week"
-
-        elif day_of_week == 4:  # Friday
+        else:  # Friday (or other scheduled days)
             logger.debug("  - Friday detected: fetching NEXT week releases for DM")
             releases = get_next_releases()
             week_label = "next week"
-
-        else:
-            logger.warning(
-                f"  ✗ DM reminder triggered on unexpected day: {day_of_week}"
-            )
-            return
 
         if not releases:
             logger.info(f"  ✗ No releases for {week_label}, no DMs to send")
@@ -367,12 +349,12 @@ def send_dm_reminders():
                     )
                     logger.debug(f"    • Added {pm} (PM) for {release.get('version')}")
 
-            qe1 = release.get("qe1")
-            if qe1 and qe1 != "TBD":
-                user_id = config.ROTA_USERS.get(qe1)
+            qe = release.get("qe")
+            if qe and qe != "TBD":
+                user_id = config.ROTA_USERS.get(qe)
                 if user_id:
                     if user_id not in people_to_notify:
-                        people_to_notify[user_id] = {"name": qe1, "assignments": []}
+                        people_to_notify[user_id] = {"name": qe, "assignments": []}
                     people_to_notify[user_id]["assignments"].append(
                         {
                             "role": "QE",
@@ -380,26 +362,7 @@ def send_dm_reminders():
                             "release": release,
                         }
                     )
-                    logger.debug(
-                        f"    • Added {qe1} (QE1) for {release.get('version')}"
-                    )
-
-            qe2 = release.get("qe2")
-            if qe2 and qe2 != "TBD":
-                user_id = config.ROTA_USERS.get(qe2)
-                if user_id:
-                    if user_id not in people_to_notify:
-                        people_to_notify[user_id] = {"name": qe2, "assignments": []}
-                    people_to_notify[user_id]["assignments"].append(
-                        {
-                            "role": "QE",
-                            "version": release.get("version"),
-                            "release": release,
-                        }
-                    )
-                    logger.debug(
-                        f"    • Added {qe2} (QE2) for {release.get('version')}"
-                    )
+                    logger.debug(f"    • Added {qe} (QE) for {release.get('version')}")
 
         logger.debug(f"  - Sending DMs to {len(people_to_notify)} people")
         for user_id, user_info in people_to_notify.items():
