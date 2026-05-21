@@ -125,13 +125,13 @@ def get_current_week_releases() -> List[Dict]:
 
 def get_next_releases() -> List[Dict]:
     """
-    Get releases for the next week from Google Sheets
+    Get releases for the next release dates from Google Sheets
     (Releases with ERR date = next available Monday with releases)
 
     Returns:
         List of release data dictionaries
     """
-    logger.debug("Step 2: Fetching next week releases from Google Sheets")
+    logger.debug("Step 2: Fetching next releases from Google Sheets")
     try:
         gsheet = GSheet(token=config.ROTA_SERVICE_ACCOUNT)
         logger.debug("  - Google Sheets client initialized")
@@ -143,15 +143,15 @@ def get_next_releases() -> List[Dict]:
         logger.debug(f"  - Fetched raw data, rows count: {len(data) if data else 0}")
 
         if not data:
-            logger.info("  ✗ No releases found for next week")
+            logger.info("  ✗ No releases found for next releases")
             return []
 
         releases = _parse_releases_from_rows(data)
-        logger.info(f"  ✓ Found {len(releases)} release(s) for next week")
+        logger.info(f"  ✓ Found {len(releases)} release(s) for next releases")
         return releases
 
     except Exception as e:
-        logger.error(f"  ✗ Error fetching next week releases: {e}", exc_info=True)
+        logger.error(f"  ✗ Error fetching next releases: {e}", exc_info=True)
         return []
 
 
@@ -177,45 +177,168 @@ def get_user_mention(username: str) -> str:
 
 def format_release_message(releases: List[Dict], week_label: str = "This Week") -> str:
     """
-    Format release information into a readable message
+    Format release information into a Slack table format with proper column alignment
 
     Args:
         releases: List of release dictionaries
         week_label: Label for the week (e.g., "This Week", "Next Week")
 
     Returns:
-        Formatted message string
+        Formatted message string with table layout
     """
     logger.debug(f"Step 3: Formatting {len(releases)} releases for '{week_label}'")
     if not releases:
         logger.debug("  - No releases to format")
         return f"No releases scheduled for {week_label.lower()}."
 
-    message_parts = []
+    # Build table header
+    label_text = "Next Releases" if "Next Week" in week_label else "EUS Releases"
+    status_icon = ":green-circle-small: " if "This Week" in week_label else ""
+    
+    # Collect data first to calculate column widths
+    data_rows = []
+    for release in releases:
+        qe = release.get("qe", "TBD")
+        logger.debug(f"  • Formatting {release['version']}: QE={qe}")
+        qe_mention = get_user_mention(qe)
+        data_rows.append([
+            release['version'],
+            release['start_date'],
+            qe_mention,
+            release['end_date']
+        ])
+    
+    # Calculate column widths based on headers and data
+    headers = ["Version", "Promotion Date", "Release Lead", "Release Date"]
+    col_widths = [len(h) for h in headers]
+    for row in data_rows:
+        for i, cell in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(str(cell)))
+    
+    # Build table with proper column padding
+    table_lines = [
+        f"{status_icon}{label_text}",
+        " | ".join(h.ljust(col_widths[i]) for i, h in enumerate(headers)),
+        "─" * (sum(col_widths) + 3 * (len(headers) - 1))
+    ]
 
+    for row in data_rows:
+        padded_row = " | ".join(str(row[i]).ljust(col_widths[i]) for i in range(len(headers)))
+        table_lines.append(padded_row)
+
+    logger.debug(f"  ✓ Formatted message with {len(table_lines) - 3} release(s)")
+    return "```\n" + "\n".join(table_lines) + "\n```"
+
+
+def format_release_message_blocks(releases: List[Dict], week_label: str = "This Week") -> list:
+    """
+    Format release information into Slack native table blocks with proper Block Kit structure
+
+    Args:
+        releases: List of release dictionaries
+        week_label: Label for the week (e.g., "This Week", "Next Week")
+
+    Returns:
+        List of Slack blocks with native table format, or None if no releases
+    """
+    logger.debug(f"Step 3: Formatting {len(releases)} releases for '{week_label}'")
+    if not releases:
+        logger.debug("  - No releases to format")
+        return None
+
+    blocks = []
+    label_text = "Next Releases" if "Next Week" in week_label else "This week Releases"
+    
+    # Add emoji prefix based on label
+    emoji_prefix = ":threadparrot: " if "Next Releases" in label_text else ":green-circle-small: "
+    
+    # Add title section with emoji
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": f"{emoji_prefix}*{label_text}*"
+        }
+    })
+
+    # Collect data for table
+    data_rows = []
     for release in releases:
         pm = release.get("pm", "TBD")
         qe = release.get("qe", "TBD")
         logger.debug(f"  • Formatting {release['version']}: PM={pm}, QE={qe}")
-
         pm_mention = get_user_mention(pm)
         qe_mention = get_user_mention(qe)
+        data_rows.append([
+            release['version'],
+            release['start_date'],
+            pm_mention,
+            qe_mention,
+            release['end_date']
+        ])
+    
+    # Define headers and calculate column widths for alignment
+    headers = ["Version", "Promotion Date", "Patch Manager", "Release Lead", "Release Date"]
+    col_widths = [len(h) for h in headers]
+    for row in data_rows:
+        for i, cell in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(str(cell)))
+    
+    # Build rows array with proper Block Kit cell format
+    rows = []
+    
+    # Header row
+    header_cells = [
+        {"type": "raw_text", "text": h.ljust(col_widths[i])}
+        for i, h in enumerate(headers)
+    ]
+    rows.append(header_cells)
+    
+    # Data rows
+    for row in data_rows:
+        cells = []
+        for i in range(len(headers)):
+            cell_text = str(row[i]).ljust(col_widths[i])
+            
+            # Use rich_text for PM and Release Lead columns to render mentions properly
+            if i in (2, 3) and cell_text.strip().startswith("<@"):  # PM or Release Lead column with mention
+                # Extract user ID from format <@USER_ID>
+                user_id = cell_text.strip()[2:-1]  # Remove <@ and >
+                cells.append({
+                    "type": "rich_text",
+                    "elements": [
+                        {
+                            "type": "rich_text_section",
+                            "elements": [
+                                {
+                                    "type": "user",
+                                    "user_id": user_id
+                                }
+                            ]
+                        }
+                    ]
+                })
+            else:
+                # Use raw_text for other columns
+                cells.append({"type": "raw_text", "text": cell_text})
+        
+        rows.append(cells)
 
-        message_text = (
-            f"*Release:* `{release['version']}`\n"
-            f":calendar: *Development Cut-off:* {release['start_date']}\n"
-            f":calendar: *Fast-Channel:* {release['end_date']}\n"
-            f"*Patch Manager:* {pm_mention}\n"
-            f"*QE:* {qe_mention}\n"
-        )
+    # Create column settings (one per column)
+    column_settings = [
+        {"is_wrapped": True}
+        for _ in range(len(headers))
+    ]
 
-        if "This Week" in week_label:
-            message_text += "*Status: :green-circle-small: Active*\n"
+    # Add table block with proper Block Kit structure
+    blocks.append({
+        "type": "table",
+        "column_settings": column_settings,
+        "rows": rows
+    })
 
-        message_parts.append(message_text)
-
-    logger.debug(f"  ✓ Formatted message with {len(message_parts)} release(s)")
-    return "\n".join(message_parts)
+    logger.debug(f"  ✓ Formatted table with {len(data_rows)} release(s)")
+    return blocks
 
 
 def send_group_reminder():
@@ -230,39 +353,50 @@ def send_group_reminder():
         day_of_week = today.weekday()  # 0 = Monday, 3 = Thursday
         logger.debug(f"  - Current day: {today} (day_of_week={day_of_week})")
 
+        blocks = []
+        
+        # Add greeting
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "Hello <!subteam^S0AGN39NYMV|!subteam^S0AGN39NYMV|@ocp-sustaining-qe>\nPlease find the EUS releases schedule below."
+            }
+        })
+
         # Determine if it's Monday or Thursday and fetch appropriate releases
         if day_of_week == 0:  # Monday
             logger.debug(
-                "  - Monday detected: fetching current week and next week releases"
+                "  - Monday detected: fetching current week and next releases"
             )
             current_releases = get_current_week_releases()
             next_releases = get_next_releases()
-
-            message_parts = [":robot_face: *ROTA Release Reminder*\n"]
 
             if current_releases:
                 logger.debug(
                     f"  - Adding current week section ({len(current_releases)} releases)"
                 )
-                message_parts.append(":threadparrot: *This week release*\n")
-                message_parts.append(
-                    format_release_message(current_releases, "This Week")
-                )
+                current_blocks = format_release_message_blocks(current_releases, "This Week")
+                if current_blocks:
+                    blocks.extend(current_blocks)
 
             if next_releases:
                 logger.debug(
-                    f"  - Adding next week section ({len(next_releases)} releases)"
+                    f"  - Adding next releases section ({len(next_releases)} releases)"
                 )
-                message_parts.append("\n:threadparrot: *Next release*\n")
-                message_parts.append(format_release_message(next_releases, "Next Week"))
+                next_blocks = format_release_message_blocks(next_releases, "Next Week")
+                if next_blocks:
+                    blocks.extend(next_blocks)
 
             if not current_releases and not next_releases:
                 logger.debug("  - No releases found, adding empty state message")
-                message_parts.append(
-                    "No releases scheduled for this week or next week."
-                )
-
-            message = "\n".join(message_parts)
+                blocks.append({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "No releases scheduled for this week."
+                    }
+                })
 
         else:  # Thursday (or other configured days)
             logger.debug(
@@ -270,25 +404,27 @@ def send_group_reminder():
             )
             current_releases = get_current_week_releases()
 
-            message_parts = [":robot_face: *ROTA Release Reminder (Mid-Week)*\n"]
-
             if current_releases:
                 logger.debug(
                     f"  - Adding current week section ({len(current_releases)} releases)"
                 )
-                message_parts.append(
-                    format_release_message(current_releases, "This Week")
-                )
+                current_blocks = format_release_message_blocks(current_releases, "This Week")
+                if current_blocks:
+                    blocks.extend(current_blocks)
             else:
                 logger.debug("  - No releases found, adding empty state message")
-                message_parts.append("No releases scheduled for this week.")
-
-            message = "\n".join(message_parts)
+                blocks.append({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "No releases scheduled for this week."
+                    }
+                })
 
         if config.ROTA_GROUP_CHANNEL:
             logger.debug(f"  - Sending message to channel: {config.ROTA_GROUP_CHANNEL}")
             success = slack_client.send_message(
-                channel=config.ROTA_GROUP_CHANNEL, text=message
+                channel=config.ROTA_GROUP_CHANNEL, blocks=blocks
             )
 
             if success:
@@ -322,9 +458,9 @@ def send_dm_reminders():
             releases = get_current_week_releases()
             week_label = "this week"
         else:  # Friday (or other scheduled days)
-            logger.debug("  - Friday detected: fetching NEXT week releases for DM")
+            logger.debug("  - Friday detected: fetching next releases for DM")
             releases = get_next_releases()
-            week_label = "next week"
+            week_label = "next releases"
 
         if not releases:
             logger.info(f"  ✗ No releases for {week_label}, no DMs to send")
@@ -405,9 +541,9 @@ def send_rota_notifications():
     Main ROTA notification job - combines group reminders and DM reminders
 
     Schedule:
-    - Monday 9 AM: Group reminder (current week + next week if found) + DM reminders (current week only)
+    - Monday 9 AM: Group reminder (current week + next releases if found) + DM reminders (current week only)
     - Thursday 9 AM: Group reminder only (same current week, mid-week recap)
-    - Friday 9 AM: DM reminders only (next week releases if they exist)
+    - Friday 9 AM: DM reminders only (next releases if they exist)
     """
     logger.info("=" * 60)
     logger.info("STARTING ROTA NOTIFICATION JOB")
@@ -421,7 +557,7 @@ def send_rota_notifications():
 
         if day_of_week == 0:  # Monday
             logger.info(
-                "Monday 9 AM: Sending group reminder (current + next week if found) and DM reminders (current week)"
+                "Monday 9 AM: Sending group reminder (current + next releases if found) and DM reminders (current week)"
             )
             send_group_reminder()
             send_dm_reminders()
@@ -432,7 +568,7 @@ def send_rota_notifications():
 
         elif day_of_week == 4:  # Friday
             logger.info(
-                "Friday 9 AM: Sending DM reminders (next week) only - skips if no next week releases"
+                "Friday 9 AM: Sending DM reminders (next releases) only - skips if no next releases"
             )
             send_dm_reminders()
 
