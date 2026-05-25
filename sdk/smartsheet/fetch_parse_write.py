@@ -213,7 +213,8 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
     if not all_values or len(all_values) == 0:
         # Worksheet is empty, write headers and all new releases
         worksheet.update(
-            values=[["Release", "Dev Cut Off", "Fast Channel", "", "", "Notify On"]], range_name="A1:F1"
+            values=[["Release", "Dev Cut Off", "Fast Channel", "", "", "Notify On"]],
+            range_name="A1:F1",
         )
         all_values = [["Release", "Dev Cut Off", "Fast Channel", "", "", "Notify On"]]
 

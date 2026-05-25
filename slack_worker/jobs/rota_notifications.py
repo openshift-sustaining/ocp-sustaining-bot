@@ -194,43 +194,44 @@ def format_release_message(releases: List[Dict], week_label: str = "This Week") 
     # Build table header
     label_text = "Next Releases" if "Next Week" in week_label else "EUS Releases"
     status_icon = ":green-circle-small: " if "This Week" in week_label else ""
-    
+
     # Collect data first to calculate column widths
     data_rows = []
     for release in releases:
         qe = release.get("qe", "TBD")
         logger.debug(f"  • Formatting {release['version']}: QE={qe}")
         qe_mention = get_user_mention(qe)
-        data_rows.append([
-            release['version'],
-            release['start_date'],
-            qe_mention,
-            release['end_date']
-        ])
-    
+        data_rows.append(
+            [release["version"], release["start_date"], qe_mention, release["end_date"]]
+        )
+
     # Calculate column widths based on headers and data
     headers = ["Version", "Promotion Date", "Release Lead", "Release Date"]
     col_widths = [len(h) for h in headers]
     for row in data_rows:
         for i, cell in enumerate(row):
             col_widths[i] = max(col_widths[i], len(str(cell)))
-    
+
     # Build table with proper column padding
     table_lines = [
         f"{status_icon}{label_text}",
         " | ".join(h.ljust(col_widths[i]) for i, h in enumerate(headers)),
-        "─" * (sum(col_widths) + 3 * (len(headers) - 1))
+        "─" * (sum(col_widths) + 3 * (len(headers) - 1)),
     ]
 
     for row in data_rows:
-        padded_row = " | ".join(str(row[i]).ljust(col_widths[i]) for i in range(len(headers)))
+        padded_row = " | ".join(
+            str(row[i]).ljust(col_widths[i]) for i in range(len(headers))
+        )
         table_lines.append(padded_row)
 
     logger.debug(f"  ✓ Formatted message with {len(table_lines) - 3} release(s)")
     return "```\n" + "\n".join(table_lines) + "\n```"
 
 
-def format_release_message_blocks(releases: List[Dict], week_label: str = "This Week") -> list:
+def format_release_message_blocks(
+    releases: List[Dict], week_label: str = "This Week"
+) -> list:
     """
     Format release information into Slack native table blocks with proper Block Kit structure
 
@@ -248,18 +249,19 @@ def format_release_message_blocks(releases: List[Dict], week_label: str = "This 
 
     blocks = []
     label_text = "Next Releases" if "Next Week" in week_label else "This week Releases"
-    
+
     # Add emoji prefix based on label
-    emoji_prefix = ":threadparrot: " if "Next Releases" in label_text else ":green-circle-small: "
-    
+    emoji_prefix = (
+        ":threadparrot: " if "Next Releases" in label_text else ":green-circle-small: "
+    )
+
     # Add title section with emoji
-    blocks.append({
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": f"{emoji_prefix}*{label_text}*"
+    blocks.append(
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"{emoji_prefix}*{label_text}*"},
         }
-    })
+    )
 
     # Collect data for table
     data_rows = []
@@ -269,73 +271,73 @@ def format_release_message_blocks(releases: List[Dict], week_label: str = "This 
         logger.debug(f"  • Formatting {release['version']}: PM={pm}, QE={qe}")
         pm_mention = get_user_mention(pm)
         qe_mention = get_user_mention(qe)
-        data_rows.append([
-            release['version'],
-            release['start_date'],
-            pm_mention,
-            qe_mention,
-            release['end_date']
-        ])
-    
+        data_rows.append(
+            [
+                release["version"],
+                release["start_date"],
+                pm_mention,
+                qe_mention,
+                release["end_date"],
+            ]
+        )
+
     # Define headers and calculate column widths for alignment
-    headers = ["Version", "Promotion Date", "Patch Manager", "Release Lead", "Release Date"]
+    headers = [
+        "Version",
+        "Promotion Date",
+        "Patch Manager",
+        "Release Lead",
+        "Release Date",
+    ]
     col_widths = [len(h) for h in headers]
     for row in data_rows:
         for i, cell in enumerate(row):
             col_widths[i] = max(col_widths[i], len(str(cell)))
-    
+
     # Build rows array with proper Block Kit cell format
     rows = []
-    
+
     # Header row
     header_cells = [
         {"type": "raw_text", "text": h.ljust(col_widths[i])}
         for i, h in enumerate(headers)
     ]
     rows.append(header_cells)
-    
+
     # Data rows
     for row in data_rows:
         cells = []
         for i in range(len(headers)):
             cell_text = str(row[i]).ljust(col_widths[i])
-            
+
             # Use rich_text for PM and Release Lead columns to render mentions properly
-            if i in (2, 3) and cell_text.strip().startswith("<@"):  # PM or Release Lead column with mention
+            if i in (2, 3) and cell_text.strip().startswith(
+                "<@"
+            ):  # PM or Release Lead column with mention
                 # Extract user ID from format <@USER_ID>
                 user_id = cell_text.strip()[2:-1]  # Remove <@ and >
-                cells.append({
-                    "type": "rich_text",
-                    "elements": [
-                        {
-                            "type": "rich_text_section",
-                            "elements": [
-                                {
-                                    "type": "user",
-                                    "user_id": user_id
-                                }
-                            ]
-                        }
-                    ]
-                })
+                cells.append(
+                    {
+                        "type": "rich_text",
+                        "elements": [
+                            {
+                                "type": "rich_text_section",
+                                "elements": [{"type": "user", "user_id": user_id}],
+                            }
+                        ],
+                    }
+                )
             else:
                 # Use raw_text for other columns
                 cells.append({"type": "raw_text", "text": cell_text})
-        
+
         rows.append(cells)
 
     # Create column settings (one per column)
-    column_settings = [
-        {"is_wrapped": True}
-        for _ in range(len(headers))
-    ]
+    column_settings = [{"is_wrapped": True} for _ in range(len(headers))]
 
     # Add table block with proper Block Kit structure
-    blocks.append({
-        "type": "table",
-        "column_settings": column_settings,
-        "rows": rows
-    })
+    blocks.append({"type": "table", "column_settings": column_settings, "rows": rows})
 
     logger.debug(f"  ✓ Formatted table with {len(data_rows)} release(s)")
     return blocks
@@ -354,21 +356,21 @@ def send_group_reminder():
         logger.debug(f"  - Current day: {today} (day_of_week={day_of_week})")
 
         blocks = []
-        
+
         # Add greeting
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "Hello <!subteam^S0AGN39NYMV|!subteam^S0AGN39NYMV|@ocp-sustaining-qe>\nPlease find the EUS releases schedule below."
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "Hello <!subteam^S0AGN39NYMV|!subteam^S0AGN39NYMV|@ocp-sustaining-qe>\nPlease find the EUS releases schedule below.",
+                },
             }
-        })
+        )
 
         # Determine if it's Monday or Thursday and fetch appropriate releases
         if day_of_week == 0:  # Monday
-            logger.debug(
-                "  - Monday detected: fetching current week and next releases"
-            )
+            logger.debug("  - Monday detected: fetching current week and next releases")
             current_releases = get_current_week_releases()
             next_releases = get_next_releases()
 
@@ -376,7 +378,9 @@ def send_group_reminder():
                 logger.debug(
                     f"  - Adding current week section ({len(current_releases)} releases)"
                 )
-                current_blocks = format_release_message_blocks(current_releases, "This Week")
+                current_blocks = format_release_message_blocks(
+                    current_releases, "This Week"
+                )
                 if current_blocks:
                     blocks.extend(current_blocks)
 
@@ -390,13 +394,15 @@ def send_group_reminder():
 
             if not current_releases and not next_releases:
                 logger.debug("  - No releases found, adding empty state message")
-                blocks.append({
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "No releases scheduled for this week."
+                blocks.append(
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "No releases scheduled for this week.",
+                        },
                     }
-                })
+                )
 
         else:  # Thursday (or other configured days)
             logger.debug(
@@ -408,18 +414,22 @@ def send_group_reminder():
                 logger.debug(
                     f"  - Adding current week section ({len(current_releases)} releases)"
                 )
-                current_blocks = format_release_message_blocks(current_releases, "This Week")
+                current_blocks = format_release_message_blocks(
+                    current_releases, "This Week"
+                )
                 if current_blocks:
                     blocks.extend(current_blocks)
             else:
                 logger.debug("  - No releases found, adding empty state message")
-                blocks.append({
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "No releases scheduled for this week."
+                blocks.append(
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "No releases scheduled for this week.",
+                        },
                     }
-                })
+                )
 
         if config.ROTA_GROUP_CHANNEL:
             logger.debug(f"  - Sending message to channel: {config.ROTA_GROUP_CHANNEL}")
