@@ -9,20 +9,16 @@ RUN apk add --no-cache --virtual .build-deps \
     linux-headers \
     python3-dev
 
-# Copy slack_worker requirements
-COPY requirements.txt /app/slack_worker/requirements.txt
-
-# Install Python dependencies
+# Copy requirements and install dependencies
+COPY slack_worker/requirements.txt /app/slack_worker/requirements.txt
 RUN pip install --no-cache-dir -r /app/slack_worker/requirements.txt
-
-# Remove build dependencies
 RUN apk del .build-deps
 
-# Copy necessary files from parent directory
-COPY ../sdk /app/sdk/
 
-# Copy slack_worker service
-COPY ./ /app/slack_worker/
+# Copy only the slack_worker service
+COPY slack_worker /app/slack_worker/
+# Copy sdk package for dependencies
+COPY sdk /app/sdk/
 
 # Create lock directory for file-based locking
 RUN mkdir -p /tmp/slack_worker_locks

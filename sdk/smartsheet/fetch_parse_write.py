@@ -170,7 +170,7 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
     """Write filtered releases to Google Sheets ROTA -> Assignments
 
     Intelligently compares fetched releases with existing data:
-    - Updates dates (B, C) for existing releases (preserves PM/QE/NOTIFY_DATE in D-F)
+    - Updates dates (B, C) and Notify On (F) for existing releases (preserves PM/QE in D-E)
     - Adds new rows for new releases
     - Marks rows for deleted releases (optional)
 
@@ -213,9 +213,10 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
     if not all_values or len(all_values) == 0:
         # Worksheet is empty, write headers and all new releases
         worksheet.update(
-            values=[["Release", "Start Date", "End Date"]], range_name="A1:C1"
+            values=[["Release", "Dev Cut Off", "Fast Channel", "", "", "Notify On"]],
+            range_name="A1:F1",
         )
-        all_values = [["Release", "Start Date", "End Date"]]
+        all_values = [["Release", "Dev Cut Off", "Fast Channel", "", "", "Notify On"]]
 
     # Build map of existing releases: {version: row_index}
     existing_releases = {}
@@ -247,13 +248,13 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
     new_releases_notify = {}  # Map of version to notify_date for later update
     rows_modified = 0
 
-    # Update existing releases with new dates (preserve D-F)
+    # Update existing releases with new dates (preserve D-E)
     for version, dates in fetched_releases.items():
         if version in existing_releases:
             row_idx = existing_releases[version]
             row_num = row_idx + 1  # Convert to 1-based sheet row number
 
-            # Update columns B, C, and F (start_date, end_date, and ERR)
+            # Update columns B, C, and F (Dev Cut Off, Fast Channel, and Notify On)
             updates.append(
                 (f"B{row_num}:C{row_num}", [[dates["start_date"], dates["end_date"]]])
             )
@@ -261,27 +262,14 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
             updates.append((f"F{row_num}", [[dates["notify_date"]]]))
             rows_modified += 1
         else:
-            # New release - only append A, B, C (don't write to D-G yet)
+            # New release - only append A, B, C (don't write to D-F yet)
             new_releases.append([version, dates["start_date"], dates["end_date"]])
             new_releases_notify[version] = dates["notify_date"]
-
-    print(
-        f"[DEBUG] {len([u for u in updates if 'F' in u[0]])} existing release ERR updates queued",
-        file=__import__("sys").stderr,
-    )
-    print(
-        f"[DEBUG] {len(new_releases)} new releases to add + update ERR column",
-        file=__import__("sys").stderr,
-    )
 
     # Apply date updates for existing releases
     if updates:
         for range_name, values in updates:
-            try:
-                worksheet.update(values=values, range_name=range_name)
-            except Exception as e:
-                print(f"Error updating {range_name}: {e}")
-                raise
+            worksheet.update(values=values, range_name=range_name)
 
     # Add new releases to the end (only columns A-C)
     if new_releases:
@@ -295,18 +283,15 @@ def write_to_gsheet(filtered_releases, gsheet_creds):
             len(all_values_after) - len(new_releases) + 1
         )  # +1 for 1-based indexing
 
-        notify_updates = []
+        # Clear updates list and rebuild with only F column updates
+        f_updates = []
         for idx, (version, notify_date) in enumerate(new_releases_notify.items()):
             row_num = start_row + idx
-            notify_updates.append((f"F{row_num}", [[notify_date]]))
+            f_updates.append((f"F{row_num}", [[notify_date]]))
 
-        # Apply F column updates for new releases
-        if notify_updates:
-            for range_name, values in notify_updates:
-                try:
-                    worksheet.update(values=values, range_name=range_name)
-                except Exception as e:
-                    print(f"Error updating NOTIFY date for {range_name}: {e}")
-                    raise
+        # Apply F column updates for new rows
+        if f_updates:
+            for range_name, values in f_updates:
+                worksheet.update(values=values, range_name=range_name)
 
     return rows_modified

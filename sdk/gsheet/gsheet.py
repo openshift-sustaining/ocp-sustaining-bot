@@ -66,7 +66,7 @@ class GSheet:
         """Get releases for a specific Monday date
 
         Args:
-            target_monday: The Monday date to filter by (from column F - ERR)
+            target_monday: The Monday date to filter by (from column F - Notify On)
 
         Returns:
             List of release rows matching the target Monday
@@ -74,7 +74,7 @@ class GSheet:
         values = self._assignment_wsheet.get_values("A:G")  # only get relevant columns
         target_monday_str = str(target_monday)
 
-        # Filter releases where column F (ERR) matches the target Monday date
+        # Filter releases where column F (Notify On) matches the target Monday date
         return [v for v in values if len(v) > 5 and v[5] == target_monday_str]
 
     def replace_user_for_release(
